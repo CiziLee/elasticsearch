@@ -138,6 +138,7 @@ public class PublishClusterStateAction extends AbstractComponent {
                     nodesToPublishTo.add(node);
                 }
             }
+            // AL 发送全部的state
             sendFullVersion = !discoverySettings.getPublishDiff() || clusterChangedEvent.previousState() == null;
             serializedStates = new HashMap<>();
             serializedDiffs = new HashMap<>();
@@ -566,6 +567,7 @@ public class PublishClusterStateAction extends AbstractComponent {
             logger.trace("master node {} acked cluster state version [{}]. processing ... (current pending [{}], needed [{}])",
                     masterNode, clusterState.version(), pendingMasterNodes, neededMastersToCommit);
             neededMastersToCommit--;
+            pendingMasterNodes--;
             if (neededMastersToCommit == 0) {
                 if (markAsCommitted()) {
                     for (DiscoveryNode nodeToCommit : sendAckedBeforeCommit) {
@@ -573,8 +575,10 @@ public class PublishClusterStateAction extends AbstractComponent {
                     }
                     sendAckedBeforeCommit.clear();
                 }
+            }else if (pendingMasterNodes == 0 && neededMastersToCommit > 0) {
+                markAsFailed("no more pending master nodes, but failed to reach needed acks ([" + neededMastersToCommit + "] left)");
             }
-            decrementPendingMasterAcksAndChangeForFailure();
+//            decrementPendingMasterAcksAndChangeForFailure();
         }
 
         private synchronized void decrementPendingMasterAcksAndChangeForFailure() {

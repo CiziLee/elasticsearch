@@ -90,7 +90,7 @@ public class TransportService extends AbstractLifecycleComponent {
 
     volatile Map<String, RequestHandlerRegistry> requestHandlers = Collections.emptyMap();
     final Object requestHandlerMutex = new Object();
-
+    // AL 每次请求 就会放入一个 请求成功后 通过requestid获取对应的handler, 处理响应
     final ConcurrentMapLong<RequestHolder> clientHandlers = ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency();
 
     final CopyOnWriteArrayList<TransportConnectionListener> connectionListeners = new CopyOnWriteArrayList<>();
@@ -557,8 +557,10 @@ public class TransportService extends AbstractLifecycleComponent {
         sendChildRequest(connection, action, request, parentTask, TransportRequestOptions.EMPTY, handler);
     }
 
-    public <T extends TransportResponse> void sendChildRequest(final Transport.Connection connection, final String action,
-                                                               final TransportRequest request, final Task parentTask,
+    public <T extends TransportResponse> void sendChildRequest(final Transport.Connection connection,
+                                                               final String action,
+                                                               final TransportRequest request,
+                                                               final Task parentTask,
                                                                final TransportRequestOptions options,
                                                                final TransportResponseHandler<T> handler) {
         request.setParentTask(localNode.getId(), parentTask.getId());

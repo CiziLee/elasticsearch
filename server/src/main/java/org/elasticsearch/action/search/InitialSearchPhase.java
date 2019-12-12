@@ -86,7 +86,7 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
         // we always add the shard failure for a specific shard instance
         // we do make sure to clean it on a successful response from a shard
         SearchShardTarget shardTarget = new SearchShardTarget(nodeId, shardIt.shardId(), shardIt.getClusterAlias(),
-                shardIt.getOriginalIndices());
+            shardIt.getOriginalIndices());
         onShardFailure(shardIndex, shardTarget, e);
 
         if (totalOps.incrementAndGet() == expectedTotalOps) {
@@ -122,36 +122,39 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
         }
     }
 
+    // AL `InitialSearchPhase`
     @Override
     public final void run() throws IOException {
         for (final SearchShardIterator iterator : toSkipShardsIts) {
             assert iterator.skip();
             skipShard(iterator);
         }
+
         if (shardsIts.size() > 0) {
             int maxConcurrentShardRequests = Math.min(this.maxConcurrentShardRequests, shardsIts.size());
             final boolean success = shardExecutionIndex.compareAndSet(0, maxConcurrentShardRequests);
-            assert success;            
+            assert success;
             assert request.allowPartialSearchResults() != null : "SearchRequest missing setting for allowPartialSearchResults";
+            // AL 不允许局部查询的话, 先验证所有的shard是否都可用
             if (request.allowPartialSearchResults() == false) {
                 final StringBuilder missingShards = new StringBuilder();
                 // Fail-fast verification of all shards being available
                 for (int index = 0; index < shardsIts.size(); index++) {
                     final SearchShardIterator shardRoutings = shardsIts.get(index);
                     if (shardRoutings.size() == 0) {
-                        if(missingShards.length() >0 ){
-                            missingShards.append(", ");                            
+                        if (missingShards.length() > 0) {
+                            missingShards.append(", ");
                         }
                         missingShards.append(shardRoutings.shardId());
                     }
                 }
-                if (missingShards.length() >0) {
+                if (missingShards.length() > 0) {
                     //Status red - shard is missing all copies and would produce partial results for an index search
-                    final String msg = "Search rejected due to missing shards ["+ missingShards +
-                            "]. Consider using `allow_partial_search_results` setting to bypass this error.";
+                    final String msg = "Search rejected due to missing shards [" + missingShards + "]. Consider using `allow_partial_search_results` setting to bypass this error.";
                     throw new SearchPhaseExecutionException(getName(), msg, null, ShardSearchFailure.EMPTY_ARRAY);
                 }
             }
+            // AL 依次执行shard请求, shard数目最大不超过`maxConcurrentShardRequests`
             for (int index = 0; index < maxConcurrentShardRequests; index++) {
                 final SearchShardIterator shardRoutings = shardsIts.get(index);
                 assert shardRoutings.skip() == false;
@@ -205,6 +208,7 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
          * could stack overflow. To prevent this, we fork if we are called back on the same thread that execution started on and otherwise
          * we can continue (cf. InitialSearchPhase#maybeFork).
          */
+        // AL 注释在解释为什么调用fork执行回调 同线程中执行回调的话有可能会内存溢出
         final Thread thread = Thread.currentThread();
         if (shard == null) {
             fork(() -> onShardFailure(shardIndex, null, null, shardIt, new NoShardAvailableActionException(shardIt.shardId())));
@@ -212,7 +216,7 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
             try {
                 executePhaseOnShard(shardIt, shard, new SearchActionListener<FirstResult>(new SearchShardTarget(shard.currentNodeId(),
                     shardIt.shardId(), shardIt.getClusterAlias(), shardIt.getOriginalIndices()), shardIndex) {
-                    @Override
+                    @Override // AL 请求执行完毕 会走这里
                     public void innerOnResponse(FirstResult result) {
                         maybeFork(thread, () -> onShardResult(result, shardIt));
                     }
@@ -255,8 +259,7 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
         if (xTotalOps == expectedTotalOps) {
             onPhaseDone();
         } else if (xTotalOps > expectedTotalOps) {
-            throw new AssertionError("unexpected higher total ops [" + xTotalOps + "] compared to expected ["
-                + expectedTotalOps + "]");
+            throw new AssertionError("unexpected higher total ops [" + xTotalOps + "] compared to expected [" + expectedTotalOps + "]");
         } else if (shardsIt.skip() == false) {
             maybeExecuteNext();
         }
@@ -265,6 +268,7 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
 
     /**
      * Executed once all shard results have been received and processed
+     *
      * @see #onShardFailure(int, SearchShardTarget, Exception)
      * @see #onShardSuccess(SearchPhaseResult)
      */
@@ -273,24 +277,26 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
     /**
      * Executed once for every failed shard level request. This method is invoked before the next replica is tried for the given
      * shard target.
-     * @param shardIndex the internal index for this shard. Each shard has an index / ordinal assigned that is used to reference
-     *                   it's results
+     *
+     * @param shardIndex  the internal index for this shard. Each shard has an index / ordinal assigned that is used to reference
+     *                    it's results
      * @param shardTarget the shard target for this failure
-     * @param ex the failure reason
+     * @param ex          the failure reason
      */
     abstract void onShardFailure(int shardIndex, SearchShardTarget shardTarget, Exception ex);
 
     /**
      * Executed once for every successful shard level request.
-     * @param result the result returned form the shard
      *
+     * @param result the result returned form the shard
      */
     abstract void onShardSuccess(FirstResult result);
 
     /**
      * Sends the request to the actual shard.
-     * @param shardIt the shards iterator
-     * @param shard the shard routing to send the request for
+     *
+     * @param shardIt  the shards iterator
+     * @param shard    the shard routing to send the request for
      * @param listener the listener to notify on response
      */
     protected abstract void executePhaseOnShard(SearchShardIterator shardIt, ShardRouting shard,
@@ -305,6 +311,7 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
         protected SearchPhaseResults(int numShards) {
             this.numShards = numShards;
         }
+
         /**
          * Returns the number of expected results this class should collect
          */
@@ -319,6 +326,7 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
 
         /**
          * Consumes a single shard result
+         *
          * @param result the shards result
          */
         abstract void consumeResult(Result result);
@@ -328,7 +336,8 @@ abstract class InitialSearchPhase<FirstResult extends SearchPhaseResult> extends
          */
         abstract boolean hasResult(int shardIndex);
 
-        void consumeShardFailure(int shardIndex) {}
+        void consumeShardFailure(int shardIndex) {
+        }
 
         AtomicArray<Result> getAtomicArray() {
             throw new UnsupportedOperationException();

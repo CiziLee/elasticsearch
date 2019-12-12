@@ -51,6 +51,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A fault detection that pings the master periodically to see if its alive.
+ * <br/>
+ * AL ping master node 并处理响应
  */
 public class MasterFaultDetection extends FaultDetection {
 
@@ -58,7 +60,9 @@ public class MasterFaultDetection extends FaultDetection {
 
     public interface Listener {
 
-        /** called when pinging the master failed, like a timeout, transport disconnects etc */
+        /**
+         * called when pinging the master failed, like a timeout, transport disconnects etc
+         */
         void onMasterFailure(DiscoveryNode masterNode, Throwable cause, String reason);
 
     }
@@ -217,85 +221,83 @@ public class MasterFaultDetection extends FaultDetection {
                 return;
             }
 
-            final MasterPingRequest request = new MasterPingRequest(
-                clusterStateSupplier.get().nodes().getLocalNode(), masterToPing, clusterName);
-            final TransportRequestOptions options = TransportRequestOptions.builder().withType(TransportRequestOptions.Type.PING)
-                .withTimeout(pingRetryTimeout).build();
+            final MasterPingRequest request = new MasterPingRequest(clusterStateSupplier.get().nodes().getLocalNode(), masterToPing, clusterName);
+            final TransportRequestOptions options = TransportRequestOptions.builder().withType(TransportRequestOptions.Type.PING).withTimeout(pingRetryTimeout).build();
             transportService.sendRequest(masterToPing, MASTER_PING_ACTION_NAME, request, options,
                 new TransportResponseHandler<MasterPingResponseResponse>() {
-                        @Override
-                        public MasterPingResponseResponse newInstance() {
-                            return new MasterPingResponseResponse();
-                        }
+                    @Override
+                    public MasterPingResponseResponse newInstance() {
+                        return new MasterPingResponseResponse();
+                    }
 
-                        @Override
-                        public void handleResponse(MasterPingResponseResponse response) {
-                            if (!running) {
-                                return;
-                            }
-                            // reset the counter, we got a good result
-                            MasterFaultDetection.this.retryCount = 0;
-                            // check if the master node did not get switched on us..., if it did, we simply return with no reschedule
+                    @Override
+                    public void handleResponse(MasterPingResponseResponse response) {
+                        if (!running) {
+                            return;
+                        }
+                        // reset the counter, we got a good result
+                        MasterFaultDetection.this.retryCount = 0;
+                        // check if the master node did not get switched on us..., if it did, we simply return with no reschedule
+                        if (masterToPing.equals(MasterFaultDetection.this.masterNode())) {
+                            // we don't stop on disconnection from master, we keep pinging it
+                            threadPool.schedule(pingInterval, ThreadPool.Names.SAME, MasterPinger.this);
+                        }
+                    }
+
+                    @Override
+                    public void handleException(TransportException exp) {
+                        if (!running) {
+                            return;
+                        }
+                        synchronized (masterNodeMutex) {
+                            // check if the master node did not get switched on us...
                             if (masterToPing.equals(MasterFaultDetection.this.masterNode())) {
-                                // we don't stop on disconnection from master, we keep pinging it
-                                threadPool.schedule(pingInterval, ThreadPool.Names.SAME, MasterPinger.this);
-                            }
-                        }
+                                if (exp instanceof ConnectTransportException || exp.getCause() instanceof ConnectTransportException) {
+                                    handleTransportDisconnect(masterToPing);
+                                    return;
+                                } else if (exp.getCause() instanceof NotMasterException) {
+                                    logger.debug("[master] pinging a master {} that is no longer a master", masterNode);
+                                    notifyMasterFailure(masterToPing, exp, "no longer master");
+                                    return;
+                                } else if (exp.getCause() instanceof ThisIsNotTheMasterYouAreLookingForException) {
+                                    logger.debug("[master] pinging a master {} that is not the master", masterNode);
+                                    notifyMasterFailure(masterToPing, exp, "not master");
+                                    return;
+                                } else if (exp.getCause() instanceof NodeDoesNotExistOnMasterException) {
+                                    logger.debug("[master] pinging a master {} but we do not exists on it, act as if its master failure"
+                                        , masterNode);
+                                    notifyMasterFailure(masterToPing, exp, "do not exists on master, act as master failure");
+                                    return;
+                                }
 
-                        @Override
-                        public void handleException(TransportException exp) {
-                            if (!running) {
-                                return;
-                            }
-                            synchronized (masterNodeMutex) {
-                                // check if the master node did not get switched on us...
-                                if (masterToPing.equals(MasterFaultDetection.this.masterNode())) {
-                                    if (exp instanceof ConnectTransportException || exp.getCause() instanceof ConnectTransportException) {
-                                        handleTransportDisconnect(masterToPing);
-                                        return;
-                                    } else if (exp.getCause() instanceof NotMasterException) {
-                                        logger.debug("[master] pinging a master {} that is no longer a master", masterNode);
-                                        notifyMasterFailure(masterToPing, exp, "no longer master");
-                                        return;
-                                    } else if (exp.getCause() instanceof ThisIsNotTheMasterYouAreLookingForException) {
-                                        logger.debug("[master] pinging a master {} that is not the master", masterNode);
-                                        notifyMasterFailure(masterToPing, exp,"not master");
-                                        return;
-                                    } else if (exp.getCause() instanceof NodeDoesNotExistOnMasterException) {
-                                        logger.debug("[master] pinging a master {} but we do not exists on it, act as if its master failure"
-                                            , masterNode);
-                                        notifyMasterFailure(masterToPing, exp,"do not exists on master, act as master failure");
-                                        return;
-                                    }
-
-                                    int retryCount = ++MasterFaultDetection.this.retryCount;
-                                    logger.trace(() -> new ParameterizedMessage(
-                                            "[master] failed to ping [{}], retry [{}] out of [{}]",
-                                            masterNode, retryCount, pingRetryCount), exp);
-                                    if (retryCount >= pingRetryCount) {
-                                        logger.debug("[master] failed to ping [{}], tried [{}] times, each with maximum [{}] timeout",
-                                            masterNode, pingRetryCount, pingRetryTimeout);
-                                        // not good, failure
-                                        notifyMasterFailure(masterToPing, null, "failed to ping, tried [" + pingRetryCount
-                                            + "] times, each with  maximum [" + pingRetryTimeout + "] timeout");
-                                    } else {
-                                        // resend the request, not reschedule, rely on send timeout
-                                        transportService.sendRequest(masterToPing, MASTER_PING_ACTION_NAME, request, options, this);
-                                    }
+                                int retryCount = ++MasterFaultDetection.this.retryCount;
+                                logger.trace(() -> new ParameterizedMessage("[master] failed to ping [{}], retry [{}] out of [{}]", masterNode, retryCount, pingRetryCount), exp);
+                                if (retryCount >= pingRetryCount) {
+                                    logger.debug("[master] failed to ping [{}], tried [{}] times, each with maximum [{}] timeout",
+                                        masterNode, pingRetryCount, pingRetryTimeout);
+                                    // not good, failure
+                                    notifyMasterFailure(masterToPing, null, "failed to ping, tried [" + pingRetryCount
+                                        + "] times, each with  maximum [" + pingRetryTimeout + "] timeout");
+                                } else {
+                                    // resend the request, not reschedule, rely on send timeout
+                                    transportService.sendRequest(masterToPing, MASTER_PING_ACTION_NAME, request, options, this);
                                 }
                             }
                         }
-
-                        @Override
-                        public String executor() {
-                            return ThreadPool.Names.SAME;
-                        }
                     }
+
+                    @Override
+                    public String executor() {
+                        return ThreadPool.Names.SAME;
+                    }
+                }
             );
         }
     }
 
-    /** Thrown when a ping reaches the wrong node */
+    /**
+     * Thrown when a ping reaches the wrong node
+     */
     static class ThisIsNotTheMasterYouAreLookingForException extends IllegalStateException {
 
         ThisIsNotTheMasterYouAreLookingForException(String msg) {

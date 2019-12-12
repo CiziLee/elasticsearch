@@ -155,6 +155,7 @@ public class Lucene {
         return SegmentInfos.readCommit(commit.getDirectory(), filename);
     }
 
+
     /**
      * Reads the segments infos from the given segments file name, failing if it fails to load
      */

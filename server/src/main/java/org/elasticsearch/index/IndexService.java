@@ -328,6 +328,8 @@ public class IndexService extends AbstractIndexComponent implements IndicesClust
         try {
             lock = nodeEnv.shardLock(shardId, TimeUnit.SECONDS.toMillis(5));
             eventListener.beforeIndexShardCreated(shardId, indexSettings);
+            // AL 操作shard所需的一些路径, translog, states什么的
+
             ShardPath path;
             try {
                 path = ShardPath.loadShardPath(logger, nodeEnv, shardId, this.indexSettings);

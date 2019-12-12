@@ -666,9 +666,9 @@ public class Node implements Closeable {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        validateNodeBeforeAcceptingRequests(new BootstrapContext(settings, onDiskMetadata), transportService.boundAddress(), pluginsService
-            .filterPlugins(Plugin
-            .class)
+        validateNodeBeforeAcceptingRequests(new BootstrapContext(settings, onDiskMetadata), transportService.boundAddress(),
+            pluginsService
+            .filterPlugins(Plugin.class)
             .stream()
             .flatMap(p -> p.getBootstrapChecks().stream()).collect(Collectors.toList()));
 

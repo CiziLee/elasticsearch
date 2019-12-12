@@ -98,7 +98,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
      */
     long buildTookInMillis() {
         return TimeUnit.NANOSECONDS.toMillis(
-                timeProvider.getRelativeCurrentNanos() - timeProvider.getRelativeStartNanos());
+            timeProvider.getRelativeCurrentNanos() - timeProvider.getRelativeStartNanos());
     }
 
     /**
@@ -122,28 +122,23 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
          * search phase as "all shards failed"*/
         if (successfulOps.get() == 0) { // we have 0 successful results that means we shortcut stuff and return a failure
             final ShardOperationFailedException[] shardSearchFailures = ExceptionsHelper.groupBy(buildShardFailures());
-            Throwable cause = shardSearchFailures.length == 0 ? null :
-                ElasticsearchException.guessRootCauses(shardSearchFailures[0].getCause())[0];
+            Throwable cause = shardSearchFailures.length == 0 ? null : ElasticsearchException.guessRootCauses(shardSearchFailures[0].getCause())[0];
             logger.debug(() -> new ParameterizedMessage("All shards failed for phase: [{}]", getName()), cause);
             onPhaseFailure(currentPhase, "all shards failed", cause);
         } else {
             Boolean allowPartialResults = request.allowPartialSearchResults();
-            assert allowPartialResults != null : "SearchRequest missing setting for allowPartialSearchResults";            
-            if (allowPartialResults == false && shardFailures.get() != null ){
+            assert allowPartialResults != null : "SearchRequest missing setting for allowPartialSearchResults";
+            if (allowPartialResults == false && shardFailures.get() != null) {
                 if (logger.isDebugEnabled()) {
                     final ShardOperationFailedException[] shardSearchFailures = ExceptionsHelper.groupBy(buildShardFailures());
-                    Throwable cause = shardSearchFailures.length == 0 ? null :
-                        ElasticsearchException.guessRootCauses(shardSearchFailures[0].getCause())[0];
-                    logger.debug(() -> new ParameterizedMessage("{} shards failed for phase: [{}]", 
-                            shardSearchFailures.length, getName()), cause);
+                    Throwable cause = shardSearchFailures.length == 0 ? null : ElasticsearchException.guessRootCauses(shardSearchFailures[0].getCause())[0];
+                    logger.debug(() -> new ParameterizedMessage("{} shards failed for phase: [{}]", shardSearchFailures.length, getName()), cause);
                 }
-                onPhaseFailure(currentPhase, "Partial shards failure", null);                
-            } else { 
+                onPhaseFailure(currentPhase, "Partial shards failure", null);
+            } else {
                 if (logger.isTraceEnabled()) {
-                    final String resultsFrom = results.getSuccessfulResults()
-                        .map(r -> r.getSearchShardTarget().toString()).collect(Collectors.joining(","));
-                    logger.trace("[{}] Moving to next phase: [{}], based on results from: {} (cluster state version: {})",
-                        currentPhase.getName(), nextPhase.getName(), resultsFrom, clusterStateVersion);
+                    final String resultsFrom = results.getSuccessfulResults().map(r -> r.getSearchShardTarget().toString()).collect(Collectors.joining(","));
+                    logger.trace("[{}] Moving to next phase: [{}], based on results from: {} (cluster state version: {})", currentPhase.getName(), nextPhase.getName(), resultsFrom, clusterStateVersion);
                 }
                 executePhase(nextPhase);
             }
@@ -228,14 +223,17 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
         listener.onFailure(exception);
     }
 
+
     @Override
     public final void onShardSuccess(Result result) {
         successfulOps.incrementAndGet();
+        // AL 搜索时的results 是 org.elasticsearch.action.search.SearchPhaseController.newSearchPhaseResults 创建的
         results.consumeResult(result);
         if (logger.isTraceEnabled()) {
             logger.trace("got first-phase result from {}", result != null ? result.getSearchShardTarget() : null);
         }
-        // clean a previous error on this shard group (note, this code will be serialized on the same shardIndex value level
+        // clean a previous error on this shard group (
+        // note, this code will be serialized on the same shardIndex value level
         // so its ok concurrency wise to miss potentially the shard failures being created because of another failure
         // in the #addShardFailure, because by definition, it will happen on *another* shardIndex
         AtomicArray<ShardSearchFailure> shardFailures = this.shardFailures.get();
@@ -271,14 +269,14 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
 
     @Override
     public final SearchResponse buildSearchResponse(InternalSearchResponse internalSearchResponse, String scrollId) {
-        
+
         ShardSearchFailure[] failures = buildShardFailures();
         Boolean allowPartialResults = request.allowPartialSearchResults();
         assert allowPartialResults != null : "SearchRequest missing setting for allowPartialSearchResults";
-        if (allowPartialResults == false && failures.length > 0){
-            raisePhaseFailure(new SearchPhaseExecutionException("", "Shard failures", null, failures));                        
-        }                              
-        
+        if (allowPartialResults == false && failures.length > 0) {
+            raisePhaseFailure(new SearchPhaseExecutionException("", "Shard failures", null, failures));
+        }
+
         return new SearchResponse(internalSearchResponse, scrollId, getNumShards(), successfulOps.get(),
             skippedOps.get(), buildTookInMillis(), failures, clusters);
     }
@@ -324,6 +322,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
 
     /**
      * Returns the next phase based on the results of the initial search phase
+     *
      * @param results the results of the initial search phase. Each non null element in the result array represent a successfully
      *                executed shard request
      * @param context the search context for the next phase

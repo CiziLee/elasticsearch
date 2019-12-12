@@ -284,6 +284,7 @@ final class IndexShardOperationPermits implements Closeable {
                 }
             };
             if (Assertions.ENABLED) {
+                // AL 追踪关闭状态, 保证"只关闭一次"语义
                 issuedPermits.put(closed, new Tuple<>(debugInfo.toString(), stackTrace));
             }
             return releasable;

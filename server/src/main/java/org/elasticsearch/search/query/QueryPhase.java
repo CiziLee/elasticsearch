@@ -95,8 +95,8 @@ public class QueryPhase implements SearchPhase {
             suggestPhase.execute(searchContext);
             // TODO: fix this once we can fetch docs for suggestions
             searchContext.queryResult().topDocs(
-                    new TopDocs(0, Lucene.EMPTY_SCORE_DOCS, 0),
-                    new DocValueFormat[0]);
+                new TopDocs(0, Lucene.EMPTY_SCORE_DOCS, 0),
+                new DocValueFormat[0]);
             return;
         }
         // Pre-process aggregations as late as possible. In the case of a DFS_Q_T_F
@@ -113,8 +113,7 @@ public class QueryPhase implements SearchPhase {
         aggregationPhase.execute(searchContext);
 
         if (searchContext.getProfilers() != null) {
-            ProfileShardResult shardResults = SearchProfileShardResults
-                    .buildShardResults(searchContext.getProfilers());
+            ProfileShardResult shardResults = SearchProfileShardResults.buildShardResults(searchContext.getProfilers());
             searchContext.queryResult().profileResults(shardResults);
         }
     }
@@ -122,6 +121,7 @@ public class QueryPhase implements SearchPhase {
     /**
      * In a package-private method so that it can be tested without having to
      * wire everything (mapperService, etc.)
+     *
      * @return whether the rescoring phase should be executed
      */
     static boolean execute(SearchContext searchContext,
@@ -137,6 +137,7 @@ public class QueryPhase implements SearchPhase {
             assert query == searcher.rewrite(query); // already rewritten
 
             final ScrollContext scrollContext = searchContext.scrollContext();
+            // AL scroll查询
             if (scrollContext != null) {
                 if (scrollContext.totalHits == -1) {
                     // first round
@@ -177,6 +178,7 @@ public class QueryPhase implements SearchPhase {
             final LinkedList<QueryCollectorContext> collectors = new LinkedList<>();
             // whether the chain contains a collector that filters documents
             boolean hasFilterCollector = false;
+            // AL terminat after
             if (searchContext.terminateAfter() != SearchContext.DEFAULT_TERMINATE_AFTER) {
                 // add terminate_after before the filter collectors
                 // it will only be applied on documents accepted by these filter collectors
@@ -187,6 +189,7 @@ public class QueryPhase implements SearchPhase {
             if (searchContext.parsedPostFilter() != null) {
                 // add post filters before aggregations
                 // it will only be applied to top hits
+                // AL post filter 影响聚合结果
                 collectors.add(createFilteredCollectorContext(searcher, searchContext.parsedPostFilter().query()));
                 // this collector can filter documents during the collection
                 hasFilterCollector = true;
@@ -196,14 +199,14 @@ public class QueryPhase implements SearchPhase {
                 collectors.add(createMultiCollectorContext(searchContext.queryCollectors().values()));
             }
             if (searchContext.minimumScore() != null) {
+                // AL 最小评分查询
                 // apply the minimum score after multi collector so we filter aggs as well
                 collectors.add(createMinScoreCollectorContext(searchContext.minimumScore()));
                 // this collector can filter documents during the collection
                 hasFilterCollector = true;
             }
-
-            boolean timeoutSet = scrollContext == null && searchContext.timeout() != null &&
-                searchContext.timeout().equals(SearchService.NO_TIMEOUT) == false;
+            // AL 超时处理
+            boolean timeoutSet = scrollContext == null && searchContext.timeout() != null && searchContext.timeout().equals(SearchService.NO_TIMEOUT) == false;
 
             final Runnable timeoutRunnable;
             if (timeoutSet) {
@@ -220,18 +223,23 @@ public class QueryPhase implements SearchPhase {
             } else {
                 timeoutRunnable = null;
             }
-
+            // AL 可取消的查询
             final Runnable cancellationRunnable;
             if (searchContext.lowLevelCancellation()) {
                 SearchTask task = searchContext.getTask();
-                cancellationRunnable = () -> { if (task.isCancelled()) throw new TaskCancelledException("cancelled"); };
+                cancellationRunnable = () -> {
+                    if (task.isCancelled()) throw new TaskCancelledException("cancelled");
+                };
             } else {
                 cancellationRunnable = null;
             }
 
             final Runnable checkCancelled;
             if (timeoutRunnable != null && cancellationRunnable != null) {
-                checkCancelled = () -> { timeoutRunnable.run(); cancellationRunnable.run(); };
+                checkCancelled = () -> {
+                    timeoutRunnable.run();
+                    cancellationRunnable.run();
+                };
             } else if (timeoutRunnable != null) {
                 checkCancelled = timeoutRunnable;
             } else if (cancellationRunnable != null) {
@@ -239,7 +247,7 @@ public class QueryPhase implements SearchPhase {
             } else {
                 checkCancelled = null;
             }
-
+            // AL 合并超时和取消处理
             checkCancellationSetter.accept(checkCancelled);
 
             // add cancellable
@@ -259,7 +267,7 @@ public class QueryPhase implements SearchPhase {
                 searchContext.getProfilers().getCurrentQueryProfiler().setCollector(profileCollector);
                 queryCollector = profileCollector;
             } else {
-               queryCollector = QueryCollectorContext.createQueryCollector(collectors);
+                queryCollector = QueryCollectorContext.createQueryCollector(collectors);
             }
 
             try {
@@ -268,7 +276,7 @@ public class QueryPhase implements SearchPhase {
                 queryResult.terminatedEarly(true);
             } catch (TimeExceededException e) {
                 assert timeoutSet : "TimeExceededException thrown even though timeout wasn't set";
-                
+
                 if (searchContext.request().allowPartialSearchResults() == false) {
                     // Can't rethrow TimeExceededException because not serializable
                     throw new QueryPhaseExecutionException(searchContext, "Time exceeded");
@@ -282,8 +290,7 @@ public class QueryPhase implements SearchPhase {
             for (QueryCollectorContext ctx : collectors) {
                 ctx.postProcess(result);
             }
-            EsThreadPoolExecutor executor = (EsThreadPoolExecutor)
-                    searchContext.indexShard().getThreadPool().executor(ThreadPool.Names.SEARCH);
+            EsThreadPoolExecutor executor = (EsThreadPoolExecutor) searchContext.indexShard().getThreadPool().executor(ThreadPool.Names.SEARCH);
             if (executor instanceof QueueResizingEsThreadPoolExecutor) {
                 QueueResizingEsThreadPoolExecutor rExecutor = (QueueResizingEsThreadPoolExecutor) executor;
                 queryResult.nodeQueueSize(rExecutor.getCurrentQueueSize());
@@ -301,8 +308,9 @@ public class QueryPhase implements SearchPhase {
 
     /**
      * Returns true if the provided <code>query</code> returns docs in index order (internal doc ids).
+     *
      * @param query The query to execute
-     * @param sf The query sort
+     * @param sf    The query sort
      */
     static boolean returnsDocsInOrder(Query query, SortAndFormats sf) {
         if (sf == null || Sort.RELEVANCE.equals(sf.sort)) {
@@ -334,5 +342,6 @@ public class QueryPhase implements SearchPhase {
         return true;
     }
 
-    private static class TimeExceededException extends RuntimeException {}
+    private static class TimeExceededException extends RuntimeException {
+    }
 }

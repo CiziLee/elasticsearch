@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Maps _uid value to its version information. */
+// AL 文档uid的操作?
 final class LiveVersionMap implements ReferenceManager.RefreshListener, Accountable {
 
     private final KeyedLock<BytesRef> keyedLock = new KeyedLock<>();
@@ -57,6 +58,8 @@ final class LiveVersionMap implements ReferenceManager.RefreshListener, Accounta
         // NOTE: these values can both be non-volatile since it's ok to read a stale value per doc ID. We serialize changes in the engine
         // that will prevent concurrent updates to the same document ID and therefore we can rely on the happens-before guanratee of the
         // map reference itself.
+        // AL 使用自增长id时时unsafe模式, version map就没啥用了, unsafe认为一定不会有重复的文档; 可变 , unsafe -> safe 需要refresh, 后续操作就需要记录version map;
+        //  好的一点是我们需要的id 在engine中就被锁定了, 所以我们之后的全部操作都不需要锁
         private boolean unsafe;
 
         // minimum timestamp of delete operations that were made while this map was active. this is used to make sure they are kept in
@@ -101,7 +104,7 @@ final class LiveVersionMap implements ReferenceManager.RefreshListener, Accounta
         }
 
     }
-
+    // AL 保存了一个文档的version信息
     private static final class Maps {
 
         // All writes (adds and deletes) go into here:
@@ -187,6 +190,7 @@ final class LiveVersionMap implements ReferenceManager.RefreshListener, Accounta
     }
 
     // All deletes also go here, and delete "tombstones" are retained after refresh:
+
     private final Map<BytesRef, DeleteVersionValue> tombstones = ConcurrentCollections.newConcurrentMapWithAggressiveConcurrency();
 
     private volatile Maps maps = new Maps();

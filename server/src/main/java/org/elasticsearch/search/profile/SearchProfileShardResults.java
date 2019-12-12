@@ -55,7 +55,7 @@ public final class SearchProfileShardResults implements Writeable, ToXContentFra
     private Map<String, ProfileShardResult> shardResults;
 
     public SearchProfileShardResults(Map<String, ProfileShardResult> shardResults) {
-        this.shardResults =  Collections.unmodifiableMap(shardResults);
+        this.shardResults = Collections.unmodifiableMap(shardResults);
     }
 
     public SearchProfileShardResults(StreamInput in) throws IOException {
@@ -126,7 +126,7 @@ public final class SearchProfileShardResults implements Writeable, ToXContentFra
     }
 
     private static void parseSearchProfileResultsEntry(XContentParser parser,
-            Map<String, ProfileShardResult> searchProfileResults) throws IOException {
+                                                       Map<String, ProfileShardResult> searchProfileResults) throws IOException {
         XContentParser.Token token = parser.currentToken();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, token, parser::getTokenLocation);
         List<QueryProfileShardResult> queryProfileResults = new ArrayList<>();
@@ -163,18 +163,16 @@ public final class SearchProfileShardResults implements Writeable, ToXContentFra
      * Helper method to convert Profiler into InternalProfileShardResults, which
      * can be serialized to other nodes, emitted as JSON, etc.
      *
-     * @param profilers
-     *            The {@link Profilers} to convert into results
+     * @param profilers The {@link Profilers} to convert into results
      * @return A {@link ProfileShardResult} representing the results for this
-     *         shard
+     * shard
      */
     public static ProfileShardResult buildShardResults(Profilers profilers) {
         List<QueryProfiler> queryProfilers = profilers.getQueryProfilers();
         AggregationProfiler aggProfiler = profilers.getAggregationProfiler();
         List<QueryProfileShardResult> queryResults = new ArrayList<>(queryProfilers.size());
         for (QueryProfiler queryProfiler : queryProfilers) {
-            QueryProfileShardResult result = new QueryProfileShardResult(queryProfiler.getTree(), queryProfiler.getRewriteTime(),
-                    queryProfiler.getCollector());
+            QueryProfileShardResult result = new QueryProfileShardResult(queryProfiler.getTree(), queryProfiler.getRewriteTime(), queryProfiler.getCollector());
             queryResults.add(result);
         }
         AggregationProfileShardResult aggResults = new AggregationProfileShardResult(aggProfiler.getTree());

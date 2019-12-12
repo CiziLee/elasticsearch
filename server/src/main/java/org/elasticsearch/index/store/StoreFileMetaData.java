@@ -39,7 +39,7 @@ public class StoreFileMetaData implements Writeable {
 
     private final String checksum;
 
-    private final Version writtenBy;
+    private final Version writtenBy;// AL lucene 版本
 
     private final BytesRef hash;
 

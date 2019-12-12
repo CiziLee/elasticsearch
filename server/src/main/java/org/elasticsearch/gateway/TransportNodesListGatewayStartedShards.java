@@ -116,10 +116,12 @@ public class TransportNodesListGatewayStartedShards extends
         try {
             final ShardId shardId = request.getShardId();
             logger.trace("{} loading local shard state info", shardId);
+            // AL 从本地获取shard meta
             ShardStateMetaData shardStateMetaData = ShardStateMetaData.FORMAT.loadLatestState(logger, NamedXContentRegistry.EMPTY,
                 nodeEnv.availableShardPaths(request.shardId));
-            if (shardStateMetaData != null) {
+            if (shardStateMetaData != null) {// AL 本地之前有存储这个shard
                 IndexMetaData metaData = clusterService.state().metaData().index(shardId.getIndex());
+                // AL  集群中还没有该index的meta 一般有shard应该就会有index
                 if (metaData == null) {
                     // we may send this requests while processing the cluster state that recovered the index
                     // sometimes the request comes in before the local node processed that cluster state
@@ -127,6 +129,7 @@ public class TransportNodesListGatewayStartedShards extends
                     metaData = IndexMetaData.FORMAT.loadLatestState(logger, NamedXContentRegistry.EMPTY,
                         nodeEnv.indexPaths(shardId.getIndex()));
                 }
+                // AL index还没找到
                 if (metaData == null) {
                     ElasticsearchException e = new ElasticsearchException("failed to find local IndexMetaData");
                     e.setShard(request.shardId);

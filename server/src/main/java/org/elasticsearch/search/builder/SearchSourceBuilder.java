@@ -635,16 +635,16 @@ public final class SearchSourceBuilder implements Writeable, ToXContentObject, R
             return this;
     }
 
-    public SearchSourceBuilder clearRescorers() {
-        rescoreBuilders = null;
-        return this;
-    }
-
     /**
      * Should the query be profiled. Defaults to <tt>false</tt>
      */
     public SearchSourceBuilder profile(boolean profile) {
         this.profile = profile;
+        return this;
+    }
+
+    public SearchSourceBuilder clearRescorers() {
+        rescoreBuilders = null;
         return this;
     }
 

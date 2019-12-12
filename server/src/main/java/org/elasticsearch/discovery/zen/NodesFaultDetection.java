@@ -50,6 +50,7 @@ import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.new
 
 /**
  * A fault detection of multiple nodes.
+ * AL ping 其他node 并处理响应
  */
 public class NodesFaultDetection extends FaultDetection {
 

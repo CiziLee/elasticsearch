@@ -89,6 +89,7 @@ public class ReplicationOperation<
     }
 
     public void execute() throws Exception {
+        // AL null 说明满足配置要求
         final String activeShardCountFailure = checkActiveShardCount();
         final ShardRouting primaryRouting = primary.routingEntry();
         final ShardId primaryId = primaryRouting.shardId();

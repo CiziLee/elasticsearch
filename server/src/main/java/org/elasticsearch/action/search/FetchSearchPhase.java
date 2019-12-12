@@ -69,7 +69,7 @@ final class FetchSearchPhase extends SearchPhase {
         this.fetchResults = new AtomicArray<>(resultConsumer.getNumShards());
         this.searchPhaseController = searchPhaseController;
         this.queryResults = resultConsumer.getAtomicArray();
-        this.nextPhaseFactory =  nextPhaseFactory;
+        this.nextPhaseFactory = nextPhaseFactory;
         this.context = context;
         this.logger = context.getLogger();
         this.resultConsumer = resultConsumer;
@@ -98,14 +98,13 @@ final class FetchSearchPhase extends SearchPhase {
         final boolean isScrollSearch = context.getRequest().scroll() != null;
         List<SearchPhaseResult> phaseResults = queryResults.asList();
         String scrollId = isScrollSearch ? TransportSearchHelper.buildScrollId(queryResults) : null;
+        // AL 这里合并请求结果 聚合结果等
         final SearchPhaseController.ReducedQueryPhase reducedQueryPhase = resultConsumer.reduce();
         final boolean queryAndFetchOptimization = queryResults.length() == 1;
-        final Runnable finishPhase = ()
-            -> moveToNextPhase(searchPhaseController, scrollId, reducedQueryPhase, queryAndFetchOptimization ?
-            queryResults : fetchResults);
+        final Runnable finishPhase = () -> moveToNextPhase(searchPhaseController, scrollId, reducedQueryPhase, queryAndFetchOptimization ? queryResults : fetchResults);
         if (queryAndFetchOptimization) {
-            assert phaseResults.isEmpty() || phaseResults.get(0).fetchResult() != null : "phaseResults empty [" + phaseResults.isEmpty()
-                + "], single result: " +  phaseResults.get(0).fetchResult();
+            // AL 只有一个请求结果 直接执行下一阶段
+            assert phaseResults.isEmpty() || phaseResults.get(0).fetchResult() != null : "phaseResults empty [" + phaseResults.isEmpty() + "], single result: " + phaseResults.get(0).fetchResult();
             // query AND fetch optimization
             finishPhase.run();
         } else {
@@ -149,7 +148,7 @@ final class FetchSearchPhase extends SearchPhase {
     }
 
     protected ShardFetchSearchRequest createFetchRequest(long queryId, int index, IntArrayList entry,
-                                                               ScoreDoc[] lastEmittedDocPerShard, OriginalIndices originalIndices) {
+                                                         ScoreDoc[] lastEmittedDocPerShard, OriginalIndices originalIndices) {
         final ScoreDoc lastEmittedDoc = (lastEmittedDocPerShard != null) ? lastEmittedDocPerShard[index] : null;
         return new ShardFetchSearchRequest(originalIndices, queryId, entry, lastEmittedDoc);
     }
@@ -198,7 +197,8 @@ final class FetchSearchPhase extends SearchPhase {
     }
 
     private void moveToNextPhase(SearchPhaseController searchPhaseController,
-                                 String scrollId, SearchPhaseController.ReducedQueryPhase reducedQueryPhase,
+                                 String scrollId,
+                                 SearchPhaseController.ReducedQueryPhase reducedQueryPhase,
                                  AtomicArray<? extends SearchPhaseResult> fetchResultsArr) {
         final InternalSearchResponse internalResponse = searchPhaseController.merge(context.getRequest().scroll() != null,
             reducedQueryPhase, fetchResultsArr.asList(), fetchResultsArr::get);

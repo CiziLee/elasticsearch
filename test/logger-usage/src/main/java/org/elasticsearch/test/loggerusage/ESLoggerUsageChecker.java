@@ -50,6 +50,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
@@ -142,7 +143,7 @@ public class ESLoggerUsageChecker {
         }
 
         /**
-         * Returns an error message that has the form of stack traces emitted by {@link Throwable#printStackTrace}
+         * Returns an error message that has the form of stack traces emitted by {@link Throwable#printStackTrace()}
          */
         public String getErrorLines() {
             String fullClassName = Type.getObjectType(className).getClassName();

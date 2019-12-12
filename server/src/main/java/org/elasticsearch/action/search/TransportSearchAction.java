@@ -67,9 +67,11 @@ import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class TransportSearchAction extends HandledTransportAction<SearchRequest, SearchResponse> {
 
-    /** The maximum number of shards for a single search request. */
+    /**
+     * The maximum number of shards for a single search request.
+     */
     public static final Setting<Long> SHARD_COUNT_LIMIT_SETTING = Setting.longSetting(
-            "action.search.shard_count.limit", Long.MAX_VALUE, 1L, Property.Dynamic, Property.NodeScope);
+        "action.search.shard_count.limit", Long.MAX_VALUE, 1L, Property.Dynamic, Property.NodeScope);
 
     private final ClusterService clusterService;
     private final SearchTransportService searchTransportService;
@@ -147,14 +149,14 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
          * operation took can be measured against the provided relative clock and the relative start
          * time.
          *
-         * @param absoluteStartMillis the absolute start time in milliseconds since the epoch
-         * @param relativeStartNanos the relative start time in nanoseconds
+         * @param absoluteStartMillis          the absolute start time in milliseconds since the epoch
+         * @param relativeStartNanos           the relative start time in nanoseconds
          * @param relativeCurrentNanosProvider provides the current relative time
          */
         SearchTimeProvider(
-                final long absoluteStartMillis,
-                final long relativeStartNanos,
-                final LongSupplier relativeCurrentNanosProvider) {
+            final long absoluteStartMillis,
+            final long relativeStartNanos,
+            final LongSupplier relativeCurrentNanosProvider) {
             this.absoluteStartMillis = absoluteStartMillis;
             this.relativeStartNanos = relativeStartNanos;
             this.relativeCurrentNanosProvider = relativeCurrentNanosProvider;
@@ -177,43 +179,62 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
     protected void doExecute(Task task, SearchRequest searchRequest, ActionListener<SearchResponse> listener) {
         final long absoluteStartMillis = System.currentTimeMillis();
         final long relativeStartNanos = System.nanoTime();
-        final SearchTimeProvider timeProvider =
-                new SearchTimeProvider(absoluteStartMillis, relativeStartNanos, System::nanoTime);
-        ActionListener<SearchSourceBuilder> rewriteListener = ActionListener.wrap(source -> {
-            if (source != searchRequest.source()) {
-                // only set it if it changed - we don't allow null values to be set but it might be already null be we want to catch
-                // situations when it possible due to a bug changes to null
-                searchRequest.source(source);
-            }
-            final ClusterState clusterState = clusterService.state();
-            final Map<String, OriginalIndices> remoteClusterIndices = remoteClusterService.groupIndices(searchRequest.indicesOptions(),
-                searchRequest.indices(), idx -> indexNameExpressionResolver.hasIndexOrAlias(idx, clusterState));
-            OriginalIndices localIndices = remoteClusterIndices.remove(RemoteClusterAware.LOCAL_CLUSTER_GROUP_KEY);
-            if (remoteClusterIndices.isEmpty()) {
-                executeSearch((SearchTask)task, timeProvider, searchRequest, localIndices, remoteClusterIndices, Collections.emptyList(),
-                    (clusterName, nodeId) -> null, clusterState, Collections.emptyMap(), listener, clusterState.getNodes()
-                        .getDataNodes().size(), SearchResponse.Clusters.EMPTY);
-            } else {
-                remoteClusterService.collectSearchShards(searchRequest.indicesOptions(), searchRequest.preference(),
-                    searchRequest.routing(), remoteClusterIndices, ActionListener.wrap((searchShardsResponses) -> {
-                        List<SearchShardIterator> remoteShardIterators = new ArrayList<>();
-                        Map<String, AliasFilter> remoteAliasFilters = new HashMap<>();
-                        BiFunction<String, String, DiscoveryNode> clusterNodeLookup = processRemoteShards(searchShardsResponses,
-                            remoteClusterIndices, remoteShardIterators, remoteAliasFilters);
-                        int numNodesInvolved = searchShardsResponses.values().stream().mapToInt(r -> r.getNodes().length).sum()
-                            + clusterState.getNodes().getDataNodes().size();
-                        SearchResponse.Clusters clusters = buildClusters(localIndices, remoteClusterIndices, searchShardsResponses);
-                        executeSearch((SearchTask) task, timeProvider, searchRequest, localIndices, remoteClusterIndices,
-                            remoteShardIterators, clusterNodeLookup, clusterState, remoteAliasFilters, listener, numNodesInvolved,
-                            clusters);
-                    }, listener::onFailure));
-            }
-        }, listener::onFailure);
-        if (searchRequest.source() == null) {
+        final SearchTimeProvider timeProvider = new SearchTimeProvider(absoluteStartMillis, relativeStartNanos, System::nanoTime);
+
+        ActionListener<SearchSourceBuilder> rewriteListener = ActionListener.wrap(
+            source -> {
+                if (source != searchRequest.source()) {
+                    // only set it if it changed - we don't allow null values to be set but it might be already null be we want to catch
+                    // situations when it possible due to a bug changes to null
+                    searchRequest.source(source);
+                }
+                final ClusterState clusterState = clusterService.state();
+                final Map<String, OriginalIndices> remoteClusterIndices = remoteClusterService.groupIndices(searchRequest.indicesOptions(),
+                    searchRequest.indices(), idx -> indexNameExpressionResolver.hasIndexOrAlias(idx, clusterState));
+                OriginalIndices localIndices = remoteClusterIndices.remove(RemoteClusterAware.LOCAL_CLUSTER_GROUP_KEY);
+                // AL 单集群
+                if (remoteClusterIndices.isEmpty()) {
+                    executeSearch(
+                        (SearchTask) task,
+                        timeProvider, // AL 计时用
+                        searchRequest,
+                        localIndices, // AL 本地集群的index
+                        remoteClusterIndices, // AL 远程集群的index
+                        Collections.emptyList(), // AL 远程集群中的shard 这里不需要
+                        (clusterName, nodeId) -> null, // AL 远程集群连接, 这里不需要
+                        clusterState,
+                        Collections.emptyMap(), // AL 远程集群的别名表
+                        listener,
+                        clusterState.getNodes().getDataNodes().size(),
+                        SearchResponse.Clusters.EMPTY
+                    );
+//          // AL 跨集群
+                } else {
+                    remoteClusterService.collectSearchShards(searchRequest.indicesOptions(), searchRequest.preference(),
+                        searchRequest.routing(), remoteClusterIndices, ActionListener.wrap((searchShardsResponses) -> {
+                            List<SearchShardIterator> remoteShardIterators = new ArrayList<>();
+                            Map<String, AliasFilter> remoteAliasFilters = new HashMap<>();
+                            BiFunction<String, String, DiscoveryNode> clusterNodeLookup = processRemoteShards(searchShardsResponses,
+                                remoteClusterIndices, remoteShardIterators, remoteAliasFilters);
+                            int numNodesInvolved = searchShardsResponses.values().stream().mapToInt(r -> r.getNodes().length).sum()
+                                + clusterState.getNodes().getDataNodes().size();
+                            SearchResponse.Clusters clusters = buildClusters(localIndices, remoteClusterIndices, searchShardsResponses);
+                            executeSearch((SearchTask) task, timeProvider, searchRequest, localIndices, remoteClusterIndices,
+                                remoteShardIterators, clusterNodeLookup, clusterState, remoteAliasFilters, listener, numNodesInvolved,
+                                clusters);
+                        }, listener::onFailure));
+                }
+            },
+            listener::onFailure
+        );
+        if (searchRequest.source() == null) {// AL 查询请求为空, 这里不是指 空的request body
             rewriteListener.onResponse(searchRequest.source());
         } else {
-            Rewriteable.rewriteAndFetch(searchRequest.source(), searchService.getRewriteContext(timeProvider::getAbsoluteStartMillis),
-                rewriteListener);
+            Rewriteable.rewriteAndFetch(
+                searchRequest.source(),
+                searchService.getRewriteContext(timeProvider::getAbsoluteStartMillis),
+                rewriteListener
+            );
         }
     }
 
@@ -232,9 +253,9 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
     }
 
     static BiFunction<String, String, DiscoveryNode> processRemoteShards(Map<String, ClusterSearchShardsResponse> searchShardsResponses,
-                                                                      Map<String, OriginalIndices> remoteIndicesByCluster,
-                                                                      List<SearchShardIterator> remoteShardIterators,
-                                                                      Map<String, AliasFilter> aliasFilterMap) {
+                                                                         Map<String, OriginalIndices> remoteIndicesByCluster,
+                                                                         List<SearchShardIterator> remoteShardIterators,
+                                                                         Map<String, AliasFilter> aliasFilterMap) {
         Map<String, Map<String, DiscoveryNode>> clusterToNode = new HashMap<>();
         for (Map.Entry<String, ClusterSearchShardsResponse> entry : searchShardsResponses.entrySet()) {
             String clusterAlias = entry.getKey();
@@ -257,7 +278,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
                     assert aliasFilter != null : "alias filter must not be null for index: " + shardId.getIndex();
                 }
                 String[] aliases = aliasFilter.getAliases();
-                String[] finalIndices = aliases.length == 0 ? new String[] {shardId.getIndexName()} : aliases;
+                String[] finalIndices = aliases.length == 0 ? new String[]{shardId.getIndexName()} : aliases;
                 // here we have to map the filters to the UUID since from now on we use the uuid for the lookup
                 aliasFilterMap.put(shardId.getIndex().getUUID(), aliasFilter);
                 final OriginalIndices originalIndices = remoteIndicesByCluster.get(clusterAlias);
@@ -269,46 +290,51 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
             }
         }
         return (clusterAlias, nodeId) -> {
-                Map<String, DiscoveryNode> clusterNodes = clusterToNode.get(clusterAlias);
-                if (clusterNodes == null) {
-                    throw new IllegalArgumentException("unknown remote cluster: " + clusterAlias);
-                }
+            Map<String, DiscoveryNode> clusterNodes = clusterToNode.get(clusterAlias);
+            if (clusterNodes == null) {
+                throw new IllegalArgumentException("unknown remote cluster: " + clusterAlias);
+            }
             return clusterNodes.get(nodeId);
         };
     }
 
+    //AL 这里的local 指的是当前集群 而不是当前node
     private void executeSearch(SearchTask task, SearchTimeProvider timeProvider, SearchRequest searchRequest, OriginalIndices localIndices,
                                Map<String, OriginalIndices> remoteClusterIndices, List<SearchShardIterator> remoteShardIterators,
                                BiFunction<String, String, DiscoveryNode> remoteConnections, ClusterState clusterState,
                                Map<String, AliasFilter> remoteAliasMap, ActionListener<SearchResponse> listener, int nodeCount,
                                SearchResponse.Clusters clusters) {
-
+        // AL 查看有没有阻塞查询
         clusterState.blocks().globalBlockedRaiseException(ClusterBlockLevel.READ);
         // TODO: I think startTime() should become part of ActionRequest and that should be used both for index name
         // date math expressions and $now in scripts. This way all apis will deal with now in the same way instead
         // of just for the _search api
         final Index[] indices;
+        // AL 跨级群查询时 当本地集群没有目标索引时 不执行查询
         if (localIndices.indices().length == 0 && remoteClusterIndices.isEmpty() == false) {
             indices = Index.EMPTY_ARRAY; // don't search on _all if only remote indices were specified
         } else {
             indices = indexNameExpressionResolver.concreteIndices(clusterState, searchRequest.indicesOptions(),
                 timeProvider.getAbsoluteStartMillis(), localIndices.indices());
         }
+        // AL key是index的uuid
         Map<String, AliasFilter> aliasFilter = buildPerIndexAliasFilter(searchRequest, clusterState, indices, remoteAliasMap);
-        Map<String, Set<String>> routingMap = indexNameExpressionResolver.resolveSearchRouting(clusterState, searchRequest.routing(),
+        Map<String, Set<String>> routingMap = indexNameExpressionResolver.resolveSearchRouting(clusterState,
+            searchRequest.routing(),
             searchRequest.indices());
-        String[] concreteIndices = new String[indices.length];
+        String[] concreteIndices = new String[indices.length];// AL 经过解析的真正需要查询的index name
         for (int i = 0; i < indices.length; i++) {
             concreteIndices[i] = indices[i].getName();
         }
+        // AL nodeid -> 等待执行的req数量
         Map<String, Long> nodeSearchCounts = searchTransportService.getPendingSearchRequests();
         GroupShardsIterator<ShardIterator> localShardsIterator = clusterService.operationRouting().searchShards(clusterState,
-                concreteIndices, routingMap, searchRequest.preference(), searchService.getResponseCollectorService(), nodeSearchCounts);
-        GroupShardsIterator<SearchShardIterator> shardIterators = mergeShardsIterators(localShardsIterator, localIndices,
-            remoteShardIterators);
-
+            concreteIndices, routingMap, searchRequest.preference(), searchService.getResponseCollectorService(), nodeSearchCounts);
+        // AL 这里的sharditerator包装为了使用跨集群查询
+        GroupShardsIterator<SearchShardIterator> shardIterators = mergeShardsIterators(localShardsIterator, localIndices, remoteShardIterators);
+        // AL 每次查询有最大shard数量限制 默认最小值1 最大 Long.MAX_VALUE
         failIfOverShardCountLimit(clusterService, shardIterators.size());
-
+        // AL 查询是指定的index 的boost 影响评分
         Map<String, Float> concreteIndexBoosts = resolveIndexBoosts(searchRequest, clusterState);
 
         // optimize search type for cases where there is only one shard group to search on
@@ -317,7 +343,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
             searchRequest.searchType(QUERY_THEN_FETCH);
         }
         if (searchRequest.allowPartialSearchResults() == null) {
-           // No user preference defined in search request - apply cluster service default
+            // No user preference defined in search request - apply cluster service default
             searchRequest.allowPartialSearchResults(searchService.defaultAllowPartialSearchResults());
         }
         if (searchRequest.isSuggestOnly()) {
@@ -330,8 +356,11 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
                     break;
             }
         }
+        //AL 以上都是在做一些查询前的准备
 
-        final DiscoveryNodes nodes = clusterState.nodes();
+
+        final DiscoveryNodes nodes = clusterState.nodes();// AL 集群中nodes
+        // AL 从local cluster 和 remote cluster 获取node的连接
         BiFunction<String, String, Transport.Connection> connectionLookup = (clusterName, nodeId) -> {
             final DiscoveryNode discoveryNode = clusterName == null ? nodes.get(nodeId) : remoteConnections.apply(clusterName, nodeId);
             if (discoveryNode == null) {
@@ -339,6 +368,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
             }
             return searchTransportService.getConnection(clusterName, discoveryNode);
         };
+        // AL 限制并发执行的shard 请求数量
         if (searchRequest.isMaxConcurrentShardRequestsSet() == false) {
             // we try to set a default of max concurrent shard requests based on
             // the node count but upper-bound it by 256 by default to keep it sane. A single
@@ -348,21 +378,27 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
             searchRequest.setMaxConcurrentShardRequests(Math.min(256, nodeCount
                 * IndexMetaData.INDEX_NUMBER_OF_SHARDS_SETTING.getDefault(Settings.EMPTY)));
         }
+        // AL 判断是否可以先发送一个快速判断数据是否存在的请求来过滤掉一些shard
+        //  当请求是QUERY_THEN_FETCH 且查询的shard数量 > 128(default) 时 可以过滤
+        //  全表查询, 带sugest 或者聚合指定要查询全部数据时 不可以过滤
+
         boolean preFilterSearchShards = shouldPreFilterSearchShards(searchRequest, shardIterators);
+        // AL 开启线程 发送请求到对应shard 先执行 `InitialSearchPhase`
         searchAsyncAction(task, searchRequest, shardIterators, timeProvider, connectionLookup, clusterState.version(),
-            Collections.unmodifiableMap(aliasFilter), concreteIndexBoosts, listener, preFilterSearchShards, clusters).start();
+            Collections.unmodifiableMap(aliasFilter), concreteIndexBoosts, listener, preFilterSearchShards, clusters
+        ).start();
     }
 
     private boolean shouldPreFilterSearchShards(SearchRequest searchRequest, GroupShardsIterator<SearchShardIterator> shardIterators) {
         SearchSourceBuilder source = searchRequest.source();
         return searchRequest.searchType() == QUERY_THEN_FETCH && // we can't do this for DFS it needs to fan out to all shards all the time
-                SearchService.canRewriteToMatchNone(source) &&
-                searchRequest.getPreFilterShardSize() < shardIterators.size();
+            SearchService.canRewriteToMatchNone(source) &&
+            searchRequest.getPreFilterShardSize() < shardIterators.size();
     }
 
     static GroupShardsIterator<SearchShardIterator> mergeShardsIterators(GroupShardsIterator<ShardIterator> localShardsIterator,
-                                                             OriginalIndices localIndices,
-                                                             List<SearchShardIterator> remoteShardIterators) {
+                                                                         OriginalIndices localIndices,
+                                                                         List<SearchShardIterator> remoteShardIterators) {
         List<SearchShardIterator> shards = new ArrayList<>();
         shards.addAll(remoteShardIterators);
         for (ShardIterator shardIterator : localShardsIterator) {

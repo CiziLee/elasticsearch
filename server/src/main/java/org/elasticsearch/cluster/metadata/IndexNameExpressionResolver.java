@@ -355,7 +355,7 @@ public class IndexNameExpressionResolver extends AbstractComponent {
     public Map<String, Set<String>> resolveSearchRouting(ClusterState state, @Nullable String routing, String... expressions) {
         List<String> resolvedExpressions = expressions != null ? Arrays.asList(expressions) : Collections.<String>emptyList();
         Context context = new Context(state, IndicesOptions.lenientExpandOpen());
-        for (ExpressionResolver expressionResolver : expressionResolvers) {
+        for (ExpressionResolver expressionResolver : expressionResolvers) {// AL 处理index name中的日期符号和通配符
             resolvedExpressions = expressionResolver.resolve(context, resolvedExpressions);
         }
 

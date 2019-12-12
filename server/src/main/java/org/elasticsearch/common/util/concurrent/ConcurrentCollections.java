@@ -41,6 +41,7 @@ public abstract class ConcurrentCollections {
 
     /**
      * Creates a new CHM with an aggressive concurrency level, aimed at high concurrent update rate long living maps.
+     * AL 并发较大的map
      */
     public static <K, V> ConcurrentMap<K, V> newConcurrentMapWithAggressiveConcurrency() {
         return newConcurrentMapWithAggressiveConcurrency(16);

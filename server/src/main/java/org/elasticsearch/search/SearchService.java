@@ -134,7 +134,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
     public static final Setting<TimeValue> DEFAULT_SEARCH_TIMEOUT_SETTING =
         Setting.timeSetting("search.default_search_timeout", NO_TIMEOUT, Property.Dynamic, Property.NodeScope);
     public static final Setting<Boolean> DEFAULT_ALLOW_PARTIAL_SEARCH_RESULTS =
-            Setting.boolSetting("search.default_allow_partial_results", true, Property.Dynamic, Property.NodeScope);
+        Setting.boolSetting("search.default_allow_partial_results", true, Property.Dynamic, Property.NodeScope);
 
 
     private final ThreadPool threadPool;
@@ -200,7 +200,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
 
         defaultAllowPartialSearchResults = DEFAULT_ALLOW_PARTIAL_SEARCH_RESULTS.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(DEFAULT_ALLOW_PARTIAL_SEARCH_RESULTS,
-                this::setDefaultAllowPartialSearchResults);
+            this::setDefaultAllowPartialSearchResults);
 
 
         lowLevelCancellation = LOW_LEVEL_CANCELLATION_SETTING.get(settings);
@@ -316,7 +316,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
      * Try to load the query results from the cache or execute the query phase directly if the cache cannot be used.
      */
     private void loadOrExecuteQueryPhase(final ShardSearchRequest request, final SearchContext context) throws Exception {
-        final boolean canCache = indicesService.canCache(request, context);
+        final boolean canCache = indicesService.canCache(request, context);// AL 这里是shard request cache
         context.getQueryShardContext().freezeContext();
         if (canCache) {
             indicesService.loadIntoContext(request, context, queryPhase);
@@ -324,7 +324,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             queryPhase.execute(context);
         }
     }
-
+    // AL shard 查询请求入口
     public void executeQueryPhase(ShardSearchRequest request, SearchTask task, ActionListener<SearchPhaseResult> listener) {
         rewriteShardRequest(request, new ActionListener<ShardSearchRequest>() {
             @Override
@@ -342,17 +342,17 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             }
         });
     }
-
+    // AL shard 执行queryphase
     SearchPhaseResult executeQueryPhase(ShardSearchRequest request, SearchTask task) throws IOException {
         final SearchContext context = createAndPutContext(request);
         final SearchOperationListener operationListener = context.indexShard().getSearchOperationListener();
-        context.incRef();
+        context.incRef(); // AL 标记这个context被引用
         boolean queryPhaseSuccess = false;
         try {
             context.setTask(task);
             operationListener.onPreQueryPhase(context);
             long time = System.nanoTime();
-            contextProcessing(context);
+            contextProcessing(context);// AL 标记正在执行
 
             loadOrExecuteQueryPhase(request, context);
 
@@ -364,7 +364,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             final long afterQueryTime = System.nanoTime();
             queryPhaseSuccess = true;
             operationListener.onQueryPhase(context, afterQueryTime - time);
-            if (request.numberOfShards() == 1) {
+            if (request.numberOfShards() == 1) {// AL 只有一个shard 就顺便执行fetch phase
                 return executeFetchPhase(context, operationListener, afterQueryTime);
             }
             return context.queryResult();
@@ -386,7 +386,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
     }
 
     private QueryFetchSearchResult executeFetchPhase(SearchContext context, SearchOperationListener operationListener,
-                                                        long afterQueryTime) {
+                                                     long afterQueryTime) {
         operationListener.onPreFetchPhase(context);
         try {
             shortcutDocIdsToLoad(context);
@@ -583,9 +583,9 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             }
 
             // pre process
-            dfsPhase.preProcess(context);
-            queryPhase.preProcess(context);
-            fetchPhase.preProcess(context);
+            dfsPhase.preProcess(context);// AL 空的
+            queryPhase.preProcess(context);// AL context.preProcess
+            fetchPhase.preProcess(context);// AL 空的
 
             // compute the context keep alive
             long keepAlive = defaultKeepAlive;
@@ -602,22 +602,29 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
         return context;
     }
 
-    public DefaultSearchContext createSearchContext(ShardSearchRequest request, TimeValue timeout)
-        throws IOException {
+    public DefaultSearchContext createSearchContext(ShardSearchRequest request, TimeValue timeout) throws IOException {
         return createSearchContext(request, timeout, true);
     }
-    private DefaultSearchContext createSearchContext(ShardSearchRequest request, TimeValue timeout,
-                                                     boolean assertAsyncActions)
-            throws IOException {
+
+    private DefaultSearchContext createSearchContext(ShardSearchRequest request, TimeValue timeout, boolean assertAsyncActions) throws IOException {
         IndexService indexService = indicesService.indexServiceSafe(request.shardId().getIndex());
         IndexShard indexShard = indexService.getShard(request.shardId().getId());
-        SearchShardTarget shardTarget = new SearchShardTarget(clusterService.localNode().getId(),
-                indexShard.shardId(), request.getClusterAlias(), OriginalIndices.NONE);
+        SearchShardTarget shardTarget = new SearchShardTarget(clusterService.localNode().getId(), indexShard.shardId(), request.getClusterAlias(), OriginalIndices.NONE);
         Engine.Searcher engineSearcher = indexShard.acquireSearcher("search");
 
-        final DefaultSearchContext searchContext = new DefaultSearchContext(idGenerator.incrementAndGet(), request, shardTarget,
-            engineSearcher, indexService, indexShard, bigArrays, threadPool.estimatedTimeInMillisCounter(), timeout, fetchPhase,
-            request.getClusterAlias());
+        final DefaultSearchContext searchContext = new DefaultSearchContext(
+            idGenerator.incrementAndGet(),
+            request,
+            shardTarget,
+            engineSearcher,
+            indexService,
+            indexShard,
+            bigArrays,
+            threadPool.estimatedTimeInMillisCounter(),
+            timeout,
+            fetchPhase,
+            request.getClusterAlias()
+        );
         boolean success = false;
         try {
             // we clone the query shard context here just for rewriting otherwise we
@@ -795,9 +802,9 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             int maxAllowedDocvalueFields = context.mapperService().getIndexSettings().getMaxDocvalueFields();
             if (source.docValueFields().size() > maxAllowedDocvalueFields) {
                 throw new IllegalArgumentException(
-                        "Trying to retrieve too many docvalue_fields. Must be less than or equal to: [" + maxAllowedDocvalueFields
-                                + "] but was [" + source.docValueFields().size() + "]. This limit can be set by changing the ["
-                                + IndexSettings.MAX_DOCVALUE_FIELDS_SEARCH_SETTING.getKey() + "] index level setting.");
+                    "Trying to retrieve too many docvalue_fields. Must be less than or equal to: [" + maxAllowedDocvalueFields
+                        + "] but was [" + source.docValueFields().size() + "]. This limit can be set by changing the ["
+                        + IndexSettings.MAX_DOCVALUE_FIELDS_SEARCH_SETTING.getKey() + "] index level setting.");
             }
             context.docValueFieldsContext(new DocValueFieldsContext(source.docValueFields()));
         }
@@ -813,9 +820,9 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             int maxAllowedScriptFields = context.mapperService().getIndexSettings().getMaxScriptFields();
             if (source.scriptFields().size() > maxAllowedScriptFields) {
                 throw new IllegalArgumentException(
-                        "Trying to retrieve too many script_fields. Must be less than or equal to: [" + maxAllowedScriptFields
-                                + "] but was [" + source.scriptFields().size() + "]. This limit can be set by changing the ["
-                                + IndexSettings.MAX_SCRIPT_FIELDS_SETTING.getKey() + "] index level setting.");
+                    "Trying to retrieve too many script_fields. Must be less than or equal to: [" + maxAllowedScriptFields
+                        + "] but was [" + source.scriptFields().size() + "]. This limit can be set by changing the ["
+                        + IndexSettings.MAX_SCRIPT_FIELDS_SETTING.getKey() + "] index level setting.");
             }
             for (org.elasticsearch.search.builder.SearchSourceBuilder.ScriptField field : source.scriptFields()) {
                 SearchScript.Factory factory = scriptService.compile(field.script(), SearchScript.CONTEXT);
@@ -1008,17 +1015,17 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
         // adding a lot of overhead
         Rewriteable.rewriteAndFetch(request.getRewriteable(), indicesService.getRewriteContext(request::nowInMillis),
             ActionListener.wrap(r ->
-                    threadPool.executor(Names.SEARCH).execute(new AbstractRunnable() {
-                        @Override
-                        public void onFailure(Exception e) {
-                            listener.onFailure(e);
-                        }
+                threadPool.executor(Names.SEARCH).execute(new AbstractRunnable() {
+                    @Override
+                    public void onFailure(Exception e) {
+                        listener.onFailure(e);
+                    }
 
-                        @Override
-                        protected void doRun() throws Exception {
-                            listener.onResponse(request);
-                        }
-                    }), listener::onFailure));
+                    @Override
+                    protected void doRun() throws Exception {
+                        listener.onResponse(request);
+                    }
+                }), listener::onFailure));
     }
 
     /**

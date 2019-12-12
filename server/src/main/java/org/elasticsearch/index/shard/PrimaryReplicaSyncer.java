@@ -83,6 +83,7 @@ public class PrimaryReplicaSyncer extends AbstractComponent {
         ActionListener<ResyncTask> resyncListener = null;
         try {
             final long startingSeqNo = indexShard.getGlobalCheckpoint() + 1;
+            // AL 对>= gcp + 1的translog做一个快照
             Translog.Snapshot snapshot = indexShard.newTranslogSnapshotFromMinSeqNo(startingSeqNo);
             resyncListener = new ActionListener<ResyncTask>() {
                 @Override
@@ -202,7 +203,7 @@ public class PrimaryReplicaSyncer extends AbstractComponent {
             this.primaryTerm = primaryTerm;
             this.snapshot = snapshot;
             this.chunkSizeInBytes = chunkSizeInBytes;
-            this.startingSeqNo = startingSeqNo;
+            this.startingSeqNo = startingSeqNo; // AL global checkpoint + 1
             this.listener = listener;
             task.setTotalOperations(snapshot.totalOperations());
         }
@@ -251,8 +252,7 @@ public class PrimaryReplicaSyncer extends AbstractComponent {
             if (!operations.isEmpty()) {
                 task.setPhase("sending_ops");
                 ResyncReplicationRequest request = new ResyncReplicationRequest(shardId, operations.toArray(EMPTY_ARRAY));
-                logger.trace("{} sending batch of [{}][{}] (total sent: [{}], skipped: [{}])", shardId, operations.size(),
-                    new ByteSizeValue(size), totalSentOps.get(), totalSkippedOps.get());
+                logger.trace("{} sending batch of [{}][{}] (total sent: [{}], skipped: [{}])", shardId, operations.size(), new ByteSizeValue(size), totalSentOps.get(), totalSkippedOps.get());
                 syncAction.sync(request, task, primaryAllocationId, primaryTerm, this);
             } else if (closed.compareAndSet(false, true)) {
                 logger.trace("{} resync completed (total sent: [{}], skipped: [{}])", shardId, totalSentOps.get(), totalSkippedOps.get());

@@ -55,20 +55,22 @@ import java.util.function.Supplier;
  * Allows performing async actions (e.g. refresh) after performing write operations on primary and replica shards
  */
 public abstract class TransportWriteAction<
-            Request extends ReplicatedWriteRequest<Request>,
-            ReplicaRequest extends ReplicatedWriteRequest<ReplicaRequest>,
-            Response extends ReplicationResponse & WriteResponse
-        > extends TransportReplicationAction<Request, ReplicaRequest, Response> {
+    Request extends ReplicatedWriteRequest<Request>,
+    ReplicaRequest extends ReplicatedWriteRequest<ReplicaRequest>,
+    Response extends ReplicationResponse & WriteResponse
+    > extends TransportReplicationAction<Request, ReplicaRequest, Response> {
 
     protected TransportWriteAction(Settings settings, String actionName, TransportService transportService,
-            ClusterService clusterService, IndicesService indicesService, ThreadPool threadPool, ShardStateAction shardStateAction,
-            ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver, Supplier<Request> request,
+                                   ClusterService clusterService, IndicesService indicesService, ThreadPool threadPool, ShardStateAction shardStateAction,
+                                   ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver, Supplier<Request> request,
                                    Supplier<ReplicaRequest> replicaRequest, String executor) {
         super(settings, actionName, transportService, clusterService, indicesService, threadPool, shardStateAction, actionFilters,
-                indexNameExpressionResolver, request, replicaRequest, executor, true);
+            indexNameExpressionResolver, request, replicaRequest, executor, true);
     }
 
-    /** Syncs operation result to the translog or throws a shard not available failure */
+    /**
+     * Syncs operation result to the translog or throws a shard not available failure
+     */
     protected static Location syncOperationResultOrThrow(final Engine.Result operationResult,
                                                          final Location currentLocation) throws Exception {
         final Location location;
@@ -90,8 +92,7 @@ public abstract class TransportWriteAction<
          * locations even though they are not in the same file. When the translog rolls over files
          * the previous file is fsynced on after closing if needed.*/
         assert next != null : "next operation can't be null";
-        assert current == null || current.compareTo(next) < 0 :
-                "translog locations are not increasing";
+        assert current == null || current.compareTo(next) < 0 : "translog locations are not increasing";
         return next;
     }
 
@@ -108,7 +109,7 @@ public abstract class TransportWriteAction<
      */
     @Override
     protected abstract WritePrimaryResult<ReplicaRequest, Response> shardOperationOnPrimary(
-            Request request, IndexShard primary) throws Exception;
+        Request request, IndexShard primary) throws Exception;
 
     /**
      * Called once per replica with a reference to the replica {@linkplain IndexShard} to modify.
@@ -118,16 +119,16 @@ public abstract class TransportWriteAction<
      */
     @Override
     protected abstract WriteReplicaResult<ReplicaRequest> shardOperationOnReplica(
-            ReplicaRequest request, IndexShard replica) throws Exception;
+        ReplicaRequest request, IndexShard replica) throws Exception;
 
     /**
      * Result of taking the action on the primary.
-     *
+     * <p>
      * NOTE: public for testing
      */
     public static class WritePrimaryResult<ReplicaRequest extends ReplicatedWriteRequest<ReplicaRequest>,
-            Response extends ReplicationResponse & WriteResponse> extends PrimaryResult<ReplicaRequest, Response>
-            implements RespondingWriteResult {
+        Response extends ReplicationResponse & WriteResponse> extends PrimaryResult<ReplicaRequest, Response>
+        implements RespondingWriteResult {
         boolean finishedAsyncActions;
         public final Location location;
         ActionListener<Response> listener = null;
@@ -138,8 +139,8 @@ public abstract class TransportWriteAction<
             super(request, finalResponse, operationFailure);
             this.location = location;
             assert location == null || operationFailure == null
-                    : "expected either failure to be null or translog location to be null, " +
-                    "but found: [" + location + "] translog location and [" + operationFailure + "] failure";
+                : "expected either failure to be null or translog location to be null, " +
+                "but found: [" + location + "] translog location and [" + operationFailure + "] failure";
             if (operationFailure != null) {
                 this.finishedAsyncActions = true;
             } else {
@@ -187,7 +188,7 @@ public abstract class TransportWriteAction<
      * Result of taking the action on the replica.
      */
     protected static class WriteReplicaResult<ReplicaRequest extends ReplicatedWriteRequest<ReplicaRequest>>
-            extends ReplicaResult implements RespondingWriteResult {
+        extends ReplicaResult implements RespondingWriteResult {
         public final Location location;
         boolean finishedAsyncActions;
         private ActionListener<TransportResponse.Empty> listener;
@@ -252,6 +253,7 @@ public abstract class TransportWriteAction<
     interface RespondingWriteResult {
         /**
          * Called on successful processing of all post write actions
+         *
          * @param forcedRefresh <code>true</code> iff this write has caused a refresh
          */
         void onSuccess(boolean forcedRefresh);
@@ -280,10 +282,10 @@ public abstract class TransportWriteAction<
         private final Logger logger;
 
         AsyncAfterWriteAction(final IndexShard indexShard,
-                             final WriteRequest<?> request,
-                             @Nullable final Translog.Location location,
-                             final RespondingWriteResult respond,
-                             final Logger logger) {
+                              final WriteRequest<?> request,
+                              @Nullable final Translog.Location location,
+                              final RespondingWriteResult respond,
+                              final Logger logger) {
             this.indexShard = indexShard;
             this.request = request;
             boolean waitUntilRefresh = false;
@@ -313,7 +315,9 @@ public abstract class TransportWriteAction<
             assert pendingOps.get() >= 0 && pendingOps.get() <= 3 : "pendingOpts was: " + pendingOps.get();
         }
 
-        /** calls the response listener if all pending operations have returned otherwise it just decrements the pending opts counter.*/
+        /**
+         * calls the response listener if all pending operations have returned otherwise it just decrements the pending opts counter.
+         */
         private void maybeFinish() {
             final int numPending = pendingOps.decrementAndGet();
             if (numPending == 0) {
@@ -323,7 +327,7 @@ public abstract class TransportWriteAction<
                     respond.onSuccess(refreshed.get());
                 }
             }
-            assert numPending >= 0 && numPending <= 2: "numPending must either 2, 1 or 0 but was " + numPending ;
+            assert numPending >= 0 && numPending <= 2 : "numPending must either 2, 1 or 0 but was " + numPending;
         }
 
         void run() {
@@ -340,8 +344,8 @@ public abstract class TransportWriteAction<
                 indexShard.addRefreshListener(location, forcedRefresh -> {
                     if (forcedRefresh) {
                         logger.warn(
-                                "block until refresh ran out of slots and forced a refresh: [{}]",
-                                request);
+                            "block until refresh ran out of slots and forced a refresh: [{}]",
+                            request);
                     }
                     refreshed.set(forcedRefresh);
                     maybeFinish();
@@ -361,7 +365,7 @@ public abstract class TransportWriteAction<
      * A proxy for <b>write</b> operations that need to be performed on the
      * replicas, where a failure to execute the operation should fail
      * the replica shard and/or mark the replica as stale.
-     *
+     * <p>
      * This extends {@code TransportReplicationAction.ReplicasProxy} to do the
      * failing and stale-ing.
      */

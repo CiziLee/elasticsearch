@@ -48,15 +48,16 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
+// AL Node Query Cache 这个最后是交由lucene执行缓存过程
 public class IndicesQueryCache extends AbstractComponent implements QueryCache, Closeable {
 
-    public static final Setting<ByteSizeValue> INDICES_CACHE_QUERY_SIZE_SETTING = 
-            Setting.memorySizeSetting("indices.queries.cache.size", "10%", Property.NodeScope);
-    public static final Setting<Integer> INDICES_CACHE_QUERY_COUNT_SETTING = 
-            Setting.intSetting("indices.queries.cache.count", 1000, 1, Property.NodeScope);
+    public static final Setting<ByteSizeValue> INDICES_CACHE_QUERY_SIZE_SETTING =
+        Setting.memorySizeSetting("indices.queries.cache.size", "10%", Property.NodeScope);
+    public static final Setting<Integer> INDICES_CACHE_QUERY_COUNT_SETTING =
+        Setting.intSetting("indices.queries.cache.count", 1000, 1, Property.NodeScope);
     // enables caching on all segments instead of only the larger ones, for testing only
-    public static final Setting<Boolean> INDICES_QUERIES_CACHE_ALL_SEGMENTS_SETTING = 
-            Setting.boolSetting("indices.queries.cache.all_segments", false, Property.NodeScope);
+    public static final Setting<Boolean> INDICES_QUERIES_CACHE_ALL_SEGMENTS_SETTING =
+        Setting.boolSetting("indices.queries.cache.all_segments", false, Property.NodeScope);
 
     private final LRUQueryCache cache;
     private final ShardCoreKeyMap shardKeyMap = new ShardCoreKeyMap();
@@ -73,7 +74,7 @@ public class IndicesQueryCache extends AbstractComponent implements QueryCache, 
         final ByteSizeValue size = INDICES_CACHE_QUERY_SIZE_SETTING.get(settings);
         final int count = INDICES_CACHE_QUERY_COUNT_SETTING.get(settings);
         logger.debug("using [node] query cache with size [{}] max filter count [{}]",
-                size, count);
+            size, count);
         if (INDICES_QUERIES_CACHE_ALL_SEGMENTS_SETTING.get(settings)) {
             cache = new ElasticsearchLRUQueryCache(count, size.getBytes(), context -> true);
         } else {
@@ -102,8 +103,8 @@ public class IndicesQueryCache extends AbstractComponent implements QueryCache, 
             totalSize += s.getCacheSize();
         }
         final double weight = totalSize == 0
-                ? 1d / stats.size()
-                : ((double) shardStats.getCacheSize()) / totalSize;
+            ? 1d / stats.size()
+            : ((double) shardStats.getCacheSize()) / totalSize;
         final long additionalRamBytesUsed = Math.round(weight * sharedRamBytesUsed);
         shardStats.add(new QueryCacheStats(additionalRamBytesUsed, 0, 0, 0, 0));
         return shardStats;

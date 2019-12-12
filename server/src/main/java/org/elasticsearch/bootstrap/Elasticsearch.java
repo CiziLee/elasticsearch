@@ -33,12 +33,15 @@ import org.elasticsearch.common.logging.LogConfigurator;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.monitor.jvm.JvmInfo;
 import org.elasticsearch.node.NodeValidationException;
+import org.elasticsearch.plugins.ExtendedPluginsClassLoader;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.security.Permission;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.jar.JarFile;
 
 /**
  * This class starts elasticsearch.
@@ -73,6 +76,7 @@ class Elasticsearch extends EnvironmentAwareCommand {
      * Main entry point for starting elasticsearch
      */
     public static void main(final String[] args) throws Exception {
+
         // we want the JVM to think there is a security manager installed so that if internal policy decisions that would be based on the
         // presence of a security manager or lack thereof act as if there is a security manager present (e.g., DNS cache policy)
         System.setSecurityManager(new SecurityManager() {

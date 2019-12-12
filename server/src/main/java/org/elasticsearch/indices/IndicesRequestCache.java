@@ -61,8 +61,8 @@ import java.util.function.Supplier;
  * There are still several TODOs left in this class, some easily addressable, some more complex, but the support
  * is functional.
  */
-public final class IndicesRequestCache extends AbstractComponent implements RemovalListener<IndicesRequestCache.Key,
-    BytesReference>, Closeable {
+// AL 这个是请求级别的缓存, 就是shard request cache 这个是es自己处理的
+public final class IndicesRequestCache extends AbstractComponent implements RemovalListener<IndicesRequestCache.Key, BytesReference>, Closeable {
 
     /**
      * A setting to enable or disable request caching on an index level. Its dynamic by default
@@ -109,9 +109,13 @@ public final class IndicesRequestCache extends AbstractComponent implements Remo
         notification.getKey().entity.onRemoval(notification);
     }
 
-    BytesReference getOrCompute(CacheEntity cacheEntity, Supplier<BytesReference> loader,
-            DirectoryReader reader, BytesReference cacheKey) throws Exception {
-        final Key key =  new Key(cacheEntity, reader.getVersion(), cacheKey);
+    BytesReference getOrCompute(
+        CacheEntity cacheEntity,
+        Supplier<BytesReference> loader,
+        DirectoryReader reader,
+        BytesReference cacheKey
+    ) throws Exception {
+        final Key key = new Key(cacheEntity, reader.getVersion(), cacheKey);
         Loader cacheLoader = new Loader(cacheEntity, loader);
         BytesReference value = cache.computeIfAbsent(key, cacheLoader);
         if (cacheLoader.isLoaded()) {
@@ -132,9 +136,10 @@ public final class IndicesRequestCache extends AbstractComponent implements Remo
 
     /**
      * Invalidates the given the cache entry for the given key and it's context
+     *
      * @param cacheEntity the cache entity to invalidate for
-     * @param reader the reader to invalidate the cache entry for
-     * @param cacheKey the cache key to invalidate
+     * @param reader      the reader to invalidate the cache entry for
+     * @param cacheKey    the cache key to invalidate
      */
     void invalidate(CacheEntity cacheEntity, DirectoryReader reader, BytesReference cacheKey) {
         cache.invalidate(new Key(cacheEntity, reader.getVersion(), cacheKey));
@@ -282,7 +287,6 @@ public final class IndicesRequestCache extends AbstractComponent implements Remo
             return result;
         }
     }
-
 
 
     synchronized void cleanCache() {

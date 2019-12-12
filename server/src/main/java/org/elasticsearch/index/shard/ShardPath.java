@@ -116,6 +116,7 @@ public final class ShardPath {
     public static ShardPath loadShardPath(Logger logger, NodeEnvironment env, ShardId shardId, IndexSettings indexSettings) throws IOException {
         final String indexUUID = indexSettings.getUUID();
         final Path[] paths = env.availableShardPaths(shardId);
+        // AL 获取配置的路径
         Path loadedPath = null;
         for (Path path : paths) {
             // EMPTY is safe here because we never call namedObject

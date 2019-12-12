@@ -77,6 +77,7 @@ import static org.elasticsearch.cluster.node.DiscoveryNodeFilters.OpType.OR;
 import static org.elasticsearch.common.settings.Settings.readSettingsFromStream;
 import static org.elasticsearch.common.settings.Settings.writeSettingsToStream;
 
+
 public class IndexMetaData implements Diffable<IndexMetaData>, ToXContentFragment {
 
     /**
@@ -194,7 +195,7 @@ public class IndexMetaData implements Diffable<IndexMetaData>, ToXContentFragmen
 
     public static final String SETTING_ROUTING_PARTITION_SIZE = "index.routing_partition_size";
     public static final Setting<Integer> INDEX_ROUTING_PARTITION_SIZE_SETTING =
-            Setting.intSetting(SETTING_ROUTING_PARTITION_SIZE, 1, 1, Property.IndexScope);
+        Setting.intSetting(SETTING_ROUTING_PARTITION_SIZE, 1, 1, Property.IndexScope);
 
     public static final Setting<Integer> INDEX_NUMBER_OF_ROUTING_SHARDS_SETTING =
         Setting.intSetting("index.number_of_routing_shards", INDEX_NUMBER_OF_SHARDS_SETTING, 1, new Setting.Validator<Integer>() {
@@ -270,24 +271,24 @@ public class IndexMetaData implements Diffable<IndexMetaData>, ToXContentFragmen
             Setting.simpleString(key, (value, map) -> IP_VALIDATOR.accept(key, value), Property.Dynamic, Property.IndexScope));
     public static final Setting.AffixSetting<String> INDEX_ROUTING_INITIAL_RECOVERY_GROUP_SETTING =
         Setting.prefixKeySetting("index.routing.allocation.initial_recovery.", key -> Setting.simpleString(key));
-        // this is only setable internally not a registered setting!!
+    // this is only setable internally not a registered setting!!
 
     /**
      * The number of active shard copies to check for before proceeding with a write operation.
      */
     public static final Setting<ActiveShardCount> SETTING_WAIT_FOR_ACTIVE_SHARDS =
         new Setting<>("index.write.wait_for_active_shards",
-                      "1",
-                      ActiveShardCount::parseString,
-                      Setting.Property.Dynamic,
-                      Setting.Property.IndexScope);
+            "1",
+            ActiveShardCount::parseString,
+            Setting.Property.Dynamic,
+            Setting.Property.IndexScope);
 
     /**
      * an internal index format description, allowing us to find out if this index is upgraded or needs upgrading
      */
     private static final String INDEX_FORMAT = "index.format";
     public static final Setting<Integer> INDEX_FORMAT_SETTING =
-            Setting.intSetting(INDEX_FORMAT, 0, Setting.Property.IndexScope, Setting.Property.Final);
+        Setting.intSetting(INDEX_FORMAT, 0, Setting.Property.IndexScope, Setting.Property.Final);
 
     public static final String KEY_IN_SYNC_ALLOCATIONS = "in_sync_allocations";
     static final String KEY_VERSION = "version";
@@ -1031,7 +1032,7 @@ public class IndexMetaData implements Diffable<IndexMetaData>, ToXContentFragmen
             int routingPartitionSize = INDEX_ROUTING_PARTITION_SIZE_SETTING.get(settings);
             if (routingPartitionSize != 1 && routingPartitionSize >= getRoutingNumShards()) {
                 throw new IllegalArgumentException("routing partition size [" + routingPartitionSize + "] should be a positive number"
-                        + " less than the number of shards [" + getRoutingNumShards() + "] for [" + index + "]");
+                    + " less than the number of shards [" + getRoutingNumShards() + "] for [" + index + "]");
             }
             // fill missing slots in inSyncAllocationIds with empty set if needed and make all entries immutable
             ImmutableOpenIntMap.Builder<Set<String>> filledInSyncAllocationIds = ImmutableOpenIntMap.builder();
@@ -1083,8 +1084,8 @@ public class IndexMetaData implements Diffable<IndexMetaData>, ToXContentFragmen
             final ActiveShardCount waitForActiveShards = SETTING_WAIT_FOR_ACTIVE_SHARDS.get(settings);
             if (waitForActiveShards.validate(numberOfReplicas) == false) {
                 throw new IllegalArgumentException("invalid " + SETTING_WAIT_FOR_ACTIVE_SHARDS.getKey() +
-                                                   "[" + waitForActiveShards + "]: cannot be greater than " +
-                                                   "number of shard copies [" + (numberOfReplicas + 1) + "]");
+                    "[" + waitForActiveShards + "]: cannot be greater than " +
+                    "number of shard copies [" + (numberOfReplicas + 1) + "]");
             }
 
             final String uuid = settings.get(SETTING_INDEX_UUID, INDEX_UUID_NA_VALUE);
@@ -1340,7 +1341,7 @@ public class IndexMetaData implements Diffable<IndexMetaData>, ToXContentFragmen
         int numSourceShards = sourceIndexMetadata.getNumberOfShards();
         if (numSourceShards > numTargetShards) {
             throw new IllegalArgumentException("the number of source shards [" + numSourceShards
-                 + "] must be less that the number of target shards [" + numTargetShards + "]");
+                + "] must be less that the number of target shards [" + numTargetShards + "]");
         }
         int routingFactor = getRoutingFactor(numSourceShards, numTargetShards);
         // now we verify that the numRoutingShards is valid in the source index

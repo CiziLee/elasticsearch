@@ -55,8 +55,10 @@ public interface TransportInterceptor {
      * {@link #sendRequest(Transport.Connection, String, TransportRequest, TransportRequestOptions, TransportResponseHandler)}
      */
     interface AsyncSender {
-        <T extends TransportResponse> void sendRequest(Transport.Connection connection, String action,
-                                                       TransportRequest request, TransportRequestOptions options,
+        <T extends TransportResponse> void sendRequest(Transport.Connection connection,
+                                                       String action,
+                                                       TransportRequest request,
+                                                       TransportRequestOptions options,
                                                        TransportResponseHandler<T> handler);
     }
 }

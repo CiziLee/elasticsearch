@@ -998,8 +998,9 @@ public class Store extends AbstractIndexShardComponent implements Closeable, Ref
             final List<StoreFileMetaData> identical = new ArrayList<>();
             final List<StoreFileMetaData> different = new ArrayList<>();
             final List<StoreFileMetaData> missing = new ArrayList<>();
-            final Map<String, List<StoreFileMetaData>> perSegment = new HashMap<>();
-            final List<StoreFileMetaData> perCommitStoreFiles = new ArrayList<>();
+            final Map<String, List<StoreFileMetaData>> perSegment = new HashMap<>();// AL segment级别的文件
+            final List<StoreFileMetaData> perCommitStoreFiles = new ArrayList<>();// AL segments_N *.del *.liv
+
 
             for (StoreFileMetaData meta : this) {
                 if (IndexFileNames.OLD_SEGMENTS_GEN.equals(meta.name())) { // legacy

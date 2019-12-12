@@ -45,7 +45,10 @@ public final class CountedBitSet {
         assert bitset == null || onBits < bitset.length() : "Bitset should be released when all bits are set";
         return bitset == null ? true : bitset.get(index);
     }
+    /* AL 为啥存满就清掉? 记录的是已完成的seqNo  在{@link LocalCheckpointTracker.processedSeqNo}中通过map存储了1024个CounterBitSet 那么存储的seqNo就有 1024^2 个
+        local-checkpoint 不会延迟这么久
 
+    */
     public void set(int index) {
         assert 0 <= index && index < this.length();
         assert bitset == null || onBits < bitset.length() : "Bitset should be released when all bits are set";

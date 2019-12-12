@@ -21,22 +21,12 @@ package org.elasticsearch.action.search;
 
 import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.ObjectObjectHashMap;
-
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.CollectionStatistics;
-import org.apache.lucene.search.FieldDoc;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.TermStatistics;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.search.*;
 import org.apache.lucene.search.grouping.CollapseTopFieldDocs;
 import org.elasticsearch.common.collect.HppcMaps;
 import org.elasticsearch.common.component.AbstractComponent;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.BigArrays;
-import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.search.DocValueFormat;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -58,13 +48,7 @@ import org.elasticsearch.search.suggest.Suggest.Suggestion;
 import org.elasticsearch.search.suggest.Suggest.Suggestion.Entry;
 import org.elasticsearch.search.suggest.completion.CompletionSuggestion;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -78,7 +62,8 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Constructor.
-     * @param settings Node settings
+     *
+     * @param settings              Node settings
      * @param reduceContextFunction A function that builds a context for the reduce of an {@link InternalAggregation}
      */
     public SearchPhaseController(Settings settings, Function<Boolean, ReduceContext> reduceContextFunction) {
@@ -102,8 +87,8 @@ public final class SearchPhaseController extends AbstractComponent {
                     // totalTermFrequency is an optional statistic we need to check if either one or both
                     // are set to -1 which means not present and then set it globally to -1
                     termStatistics.put(terms[i], new TermStatistics(existing.term(),
-                            existing.docFreq() + stats[i].docFreq(),
-                            optionalSum(existing.totalTermFreq(), stats[i].totalTermFreq())));
+                        existing.docFreq() + stats[i].docFreq(),
+                        optionalSum(existing.totalTermFreq(), stats[i].totalTermFreq())));
                 } else {
                     termStatistics.put(terms[i], stats[i]);
                 }
@@ -121,10 +106,10 @@ public final class SearchPhaseController extends AbstractComponent {
                     CollectionStatistics existing = fieldStatistics.get(key);
                     if (existing != null) {
                         CollectionStatistics merged = new CollectionStatistics(
-                                key, existing.maxDoc() + value.maxDoc(),
-                                optionalSum(existing.docCount(), value.docCount()),
-                                optionalSum(existing.sumTotalTermFreq(), value.sumTotalTermFreq()),
-                                optionalSum(existing.sumDocFreq(), value.sumDocFreq())
+                            key, existing.maxDoc() + value.maxDoc(),
+                            optionalSum(existing.docCount(), value.docCount()),
+                            optionalSum(existing.sumTotalTermFreq(), value.sumTotalTermFreq()),
+                            optionalSum(existing.sumDocFreq(), value.sumDocFreq())
                         );
                         fieldStatistics.put(key, merged);
                     } else {
@@ -145,20 +130,20 @@ public final class SearchPhaseController extends AbstractComponent {
      * Returns a score doc array of top N search docs across all shards, followed by top suggest docs for each
      * named completion suggestion across all shards. If more than one named completion suggestion is specified in the
      * request, the suggest docs for a named suggestion are ordered by the suggestion name.
-     *
+     * <p>
      * Note: The order of the sorted score docs depends on the shard index in the result array if the merge process needs to disambiguate
      * the result. In oder to obtain stable results the shard index (index of the result in the result array) must be the same.
      *
-     * @param ignoreFrom Whether to ignore the from and sort all hits in each shard result.
-     *                   Enabled only for scroll search, because that only retrieves hits of length 'size' in the query phase.
-     * @param results the search phase results to obtain the sort docs from
+     * @param ignoreFrom      Whether to ignore the from and sort all hits in each shard result.
+     *                        Enabled only for scroll search, because that only retrieves hits of length 'size' in the query phase.
+     * @param results         the search phase results to obtain the sort docs from
      * @param bufferedTopDocs the pre-consumed buffered top docs
-     * @param topDocsStats the top docs stats to fill
-     * @param from the offset into the search results top docs
-     * @param size the number of hits to return from the merged top docs
+     * @param topDocsStats    the top docs stats to fill
+     * @param from            the offset into the search results top docs
+     * @param size            the number of hits to return from the merged top docs
      */
     public SortedTopDocs sortDocs(boolean ignoreFrom, Collection<? extends SearchPhaseResult> results,
-                               final Collection<TopDocs> bufferedTopDocs, final TopDocsStats topDocsStats, int from, int size) {
+                                  final Collection<TopDocs> bufferedTopDocs, final TopDocsStats topDocsStats, int from, int size) {
         if (results.isEmpty()) {
             return SortedTopDocs.EMPTY;
         }
@@ -306,7 +291,7 @@ public final class SearchPhaseController extends AbstractComponent {
     /**
      * Enriches search hits and completion suggestion hits from <code>sortedDocs</code> using <code>fetchResultsArr</code>,
      * merges suggestions, aggregations and profile results
-     *
+     * <p>
      * Expects sortedDocs to have top search docs across all shards, optionally followed by top suggest docs for each named
      * completion suggestion ordered by suggestion name
      */
@@ -407,6 +392,7 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Reduces the given query results and consumes all aggregations and profile results.
+     *
      * @param queryResults a list of non-null query shard results
      */
     public ReducedQueryPhase reducedQueryPhase(Collection<? extends SearchPhaseResult> queryResults, boolean isScrollRequest) {
@@ -415,6 +401,7 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Reduces the given query results and consumes all aggregations and profile results.
+     *
      * @param queryResults a list of non-null query shard results
      */
     public ReducedQueryPhase reducedQueryPhase(Collection<? extends SearchPhaseResult> queryResults, boolean isScrollRequest, boolean trackTotalHits) {
@@ -424,25 +411,28 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Reduces the given query results and consumes all aggregations and profile results.
-     * @param queryResults a list of non-null query shard results
-     * @param bufferedAggs a list of pre-collected / buffered aggregations. if this list is non-null all aggregations have been consumed
-     *                    from all non-null query results.
+     *
+     * @param queryResults    a list of non-null query shard results
+     * @param bufferedAggs    a list of pre-collected / buffered aggregations. if this list is non-null all aggregations have been consumed
+     *                        from all non-null query results.
      * @param bufferedTopDocs a list of pre-collected / buffered top docs. if this list is non-null all top docs have been consumed
-     *                    from all non-null query results.
+     *                        from all non-null query results.
      * @param numReducePhases the number of non-final reduce phases applied to the query results.
      * @see QuerySearchResult#consumeAggs()
      * @see QuerySearchResult#consumeProfileResult()
      */
-    private ReducedQueryPhase reducedQueryPhase(Collection<? extends SearchPhaseResult> queryResults,
-                                                List<InternalAggregations> bufferedAggs, List<TopDocs> bufferedTopDocs,
-                                                TopDocsStats topDocsStats, int numReducePhases, boolean isScrollRequest) {
+    private ReducedQueryPhase reducedQueryPhase(Collection<? extends SearchPhaseResult> queryResults,// AL 查询结果
+                                                List<InternalAggregations> bufferedAggs,
+                                                List<TopDocs> bufferedTopDocs,
+                                                TopDocsStats topDocsStats,
+                                                int numReducePhases,
+                                                boolean isScrollRequest) {
         assert numReducePhases >= 0 : "num reduce phases must be >= 0 but was: " + numReducePhases;
         numReducePhases++; // increment for this phase
         boolean timedOut = false;
         Boolean terminatedEarly = null;
         if (queryResults.isEmpty()) { // early terminate we have nothing to reduce
-            return new ReducedQueryPhase(topDocsStats.totalHits, topDocsStats.fetchHits, topDocsStats.maxScore,
-                timedOut, terminatedEarly, null, null, null, EMPTY_DOCS, null, null, numReducePhases, false, 0, 0, true);
+            return new ReducedQueryPhase(topDocsStats.totalHits, topDocsStats.fetchHits, topDocsStats.maxScore, timedOut, terminatedEarly, null, null, null, EMPTY_DOCS, null, null, numReducePhases, false, 0, 0, true);
         }
         final QuerySearchResult firstResult = queryResults.stream().findFirst().get().queryResult();
         final boolean hasSuggest = firstResult.suggest() != null;
@@ -500,13 +490,23 @@ public final class SearchPhaseController extends AbstractComponent {
             }
         }
         final Suggest suggest = groupedSuggestions.isEmpty() ? null : new Suggest(Suggest.reduce(groupedSuggestions));
+
         ReduceContext reduceContext = reduceContextFunction.apply(true);
-        final InternalAggregations aggregations = aggregationsList.isEmpty() ? null : reduceAggs(aggregationsList,
-            firstResult.pipelineAggregators(), reduceContext);
+
+        final InternalAggregations aggregations = aggregationsList.isEmpty() ? null : reduceAggs(aggregationsList, firstResult.pipelineAggregators(), reduceContext);
+
         final SearchProfileShardResults shardResults = profileResults.isEmpty() ? null : new SearchProfileShardResults(profileResults);
+
         final SortedTopDocs scoreDocs = this.sortDocs(isScrollRequest, queryResults, bufferedTopDocs, topDocsStats, from, size);
-        return new ReducedQueryPhase(topDocsStats.totalHits, topDocsStats.fetchHits, topDocsStats.maxScore,
-            timedOut, terminatedEarly, suggest, aggregations, shardResults, scoreDocs.scoreDocs, scoreDocs.sortFields,
+
+        return new ReducedQueryPhase(topDocsStats.totalHits,
+            topDocsStats.fetchHits,
+            topDocsStats.maxScore,
+            timedOut,
+            terminatedEarly,
+            suggest,
+            aggregations,
+            shardResults, scoreDocs.scoreDocs, scoreDocs.sortFields,
             firstResult != null ? firstResult.sortValueFormats() : null,
             numReducePhases, scoreDocs.isSortedByField, size, from, firstResult == null);
     }
@@ -603,6 +603,7 @@ public final class SearchPhaseController extends AbstractComponent {
 
         /**
          * Creates a new search response from the given merged hits.
+         *
          * @see #merge(boolean, ReducedQueryPhase, Collection, IntFunction)
          */
         public InternalSearchResponse buildResponse(SearchHits hits) {
@@ -629,10 +630,11 @@ public final class SearchPhaseController extends AbstractComponent {
 
         /**
          * Creates a new {@link QueryPhaseResultConsumer}
-         * @param controller a controller instance to reduce the query response objects
+         *
+         * @param controller         a controller instance to reduce the query response objects
          * @param expectedResultSize the expected number of query results. Corresponds to the number of shards queried
-         * @param bufferSize the size of the reduce buffer. if the buffer size is smaller than the number of expected results
-         *                   the buffer is used to incrementally reduce aggregation results before all shards responded.
+         * @param bufferSize         the size of the reduce buffer. if the buffer size is smaller than the number of expected results
+         *                           the buffer is used to incrementally reduce aggregation results before all shards responded.
          */
         private QueryPhaseResultConsumer(SearchPhaseController controller, int expectedResultSize, int bufferSize,
                                          boolean hasTopDocs, boolean hasAggs) {
@@ -664,6 +666,7 @@ public final class SearchPhaseController extends AbstractComponent {
         }
 
         private synchronized void consumeInternal(QuerySearchResult querySearchResult) {
+
             if (index == bufferSize) {
                 if (hasAggs) {
                     InternalAggregations reducedAggs = controller.reduceAggsIncrementally(Arrays.asList(aggsBuffer));
@@ -703,8 +706,7 @@ public final class SearchPhaseController extends AbstractComponent {
 
         @Override
         public ReducedQueryPhase reduce() {
-            return controller.reducedQueryPhase(results.asList(), getRemainingAggs(), getRemainingTopDocs(), topDocsStats,
-                numReducePhases, false);
+            return controller.reducedQueryPhase(results.asList(), getRemainingAggs(), getRemainingTopDocs(), topDocsStats, numReducePhases, false);
         }
 
         /**
@@ -714,7 +716,9 @@ public final class SearchPhaseController extends AbstractComponent {
             return index;
         }
 
-        int getNumReducePhases() { return numReducePhases; }
+        int getNumReducePhases() {
+            return numReducePhases;
+        }
     }
 
     /**

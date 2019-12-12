@@ -45,9 +45,9 @@ import java.util.stream.Collectors;
 /**
  * Observer that tracks changes made to RoutingNodes in order to update the primary terms and in-sync allocation ids in
  * {@link IndexMetaData} once the allocation round has completed.
- *
+ * <p>
  * Primary terms are updated on primary initialization or when an active primary fails.
- *
+ * <p>
  * Allocation ids are added for shards that become active and removed for shards that stop being active.
  */
 public class IndexMetaDataUpdater extends RoutingChangesObserver.AbstractRoutingChangesObserver {
@@ -93,7 +93,7 @@ public class IndexMetaDataUpdater extends RoutingChangesObserver.AbstractRouting
      * we update {@link IndexMetaData#getInSyncAllocationIds()} and {@link IndexMetaData#primaryTerm(int)} based on
      * the changes made during this allocation.
      *
-     * @param oldMetaData {@link MetaData} object from before the routing nodes was changed.
+     * @param oldMetaData     {@link MetaData} object from before the routing nodes was changed.
      * @param newRoutingTable {@link RoutingTable} object after routing changes were applied.
      * @return adapted {@link MetaData}, potentially the original one if no change was needed.
      */
@@ -133,15 +133,14 @@ public class IndexMetaDataUpdater extends RoutingChangesObserver.AbstractRouting
      */
     private IndexMetaData.Builder updateInSyncAllocations(RoutingTable newRoutingTable, IndexMetaData oldIndexMetaData,
                                                           IndexMetaData.Builder indexMetaDataBuilder, ShardId shardId, Updates updates) {
-        assert Sets.haveEmptyIntersection(updates.addedAllocationIds, updates.removedAllocationIds) :
-            "allocation ids cannot be both added and removed in the same allocation round, added ids: " +
-                updates.addedAllocationIds + ", removed ids: " + updates.removedAllocationIds;
+        assert Sets.haveEmptyIntersection(updates.addedAllocationIds, updates.removedAllocationIds) : "allocation ids cannot be both added and removed in the same allocation round, added ids: " + updates.addedAllocationIds + ", removed ids: " + updates.removedAllocationIds;
 
+        // AL 获取之前in-sync列表
         Set<String> oldInSyncAllocationIds = oldIndexMetaData.inSyncAllocationIds(shardId.id());
 
         // check if we have been force-initializing an empty primary or a stale primary
-        if (updates.initializedPrimary != null && oldInSyncAllocationIds.isEmpty() == false &&
-            oldInSyncAllocationIds.contains(updates.initializedPrimary.allocationId().getId()) == false) {
+        if (updates.initializedPrimary != null && oldInSyncAllocationIds.isEmpty() == false && oldInSyncAllocationIds.contains(updates.initializedPrimary.allocationId().getId()) == false) {
+            // AL in-sync列表里有之前initialized状态的primary shard信息
             // we're not reusing an existing in-sync allocation id to initialize a primary, which means that we're either force-allocating
             // an empty or a stale primary (see AllocateEmptyPrimaryAllocationCommand or AllocateStalePrimaryAllocationCommand).
             RecoverySource.Type recoverySourceType = updates.initializedPrimary.recoverySource().getType();
@@ -178,6 +177,7 @@ public class IndexMetaDataUpdater extends RoutingChangesObserver.AbstractRouting
                 List<ShardRouting> assignedShards = newShardRoutingTable.assignedShards();
                 assert assignedShards.size() <= maxActiveShards :
                     "cannot have more assigned shards " + assignedShards + " than maximum possible active shards " + maxActiveShards;
+                // AL 去重已分配shard
                 Set<String> assignedAllocations = assignedShards.stream().map(s -> s.allocationId().getId()).collect(Collectors.toSet());
                 inSyncAllocationIds = inSyncAllocationIds.stream()
                     .sorted(Comparator.comparing(assignedAllocations::contains).reversed()) // values with routing entries first

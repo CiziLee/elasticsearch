@@ -38,6 +38,7 @@ public class LocalCheckpointTracker {
      * A collection of bit sets representing pending sequence numbers. Each sequence number is mapped to a bit set by dividing by the
      * bit set size.
      */
+    // AL map大小1024 bitSet大小 1024 也就是说最多存储1024 * 1024 个 seqNo?
     final LongObjectHashMap<CountedBitSet> processedSeqNo = new LongObjectHashMap<>();
 
     /**
@@ -226,7 +227,7 @@ public class LocalCheckpointTracker {
     /**
      * Obtain the position in the bit set corresponding to the provided sequence number. The bit set corresponding to the sequence number
      * can be obtained via {@link #getBitSetForSeqNo(long)}.
-     *
+     *  AL 对1024取余
      * @param seqNo the sequence number to obtain the position for
      * @return the position in the bit set corresponding to the provided sequence number
      */
