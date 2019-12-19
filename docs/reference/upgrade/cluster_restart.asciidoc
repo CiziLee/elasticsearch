@@ -27,7 +27,7 @@ include::synced-flush.asciidoc[]
 --
 
 . *Stop any machine learning jobs that are running.* See
-{xpack-ref}/stopping-ml.html[Stopping Machine Learning].
+{stack-ov}/stopping-ml.html[Stopping {ml}].
 
 . *Shutdown all nodes.*
 +
@@ -39,6 +39,9 @@ include::shut-down-node.asciidoc[]
 +
 --
 include::upgrade-node.asciidoc[]
+--
++
+--
 include::set-paths-tip.asciidoc[]
 --
 

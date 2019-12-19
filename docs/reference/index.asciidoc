@@ -18,10 +18,6 @@ include::setup/installing-xes.asciidoc[]
 
 include::setup/setup-xes.asciidoc[]
 
-include::{xes-repo-dir}/monitoring/configuring-monitoring.asciidoc[]
-
-include::{xes-repo-dir}/security/configuring-es.asciidoc[]
-
 include::setup/setup-xclient.asciidoc[]
 
 include::settings/configuring-xes.asciidoc[]
@@ -30,8 +26,6 @@ include::setup/bootstrap-checks-xes.asciidoc[]
 
 :edit_url:
 include::upgrade.asciidoc[]
-
-include::migration/index.asciidoc[]
 
 include::api-conventions.asciidoc[]
 
@@ -63,7 +57,11 @@ include::sql/index.asciidoc[]
 
 include::monitoring/index.asciidoc[]
 
-include::{xes-repo-dir}/rollup/index.asciidoc[]
+include::rollup/index.asciidoc[]
+
+include::{xes-repo-dir}/security/index.asciidoc[]
+
+include::{xes-repo-dir}/watcher/index.asciidoc[]
 
 include::rest-api/index.asciidoc[]
 
@@ -77,6 +75,8 @@ include::testing.asciidoc[]
 include::glossary.asciidoc[]
 
 include::release-notes/highlights.asciidoc[]
+
+include::migration/index.asciidoc[]
 
 include::release-notes.asciidoc[]
 

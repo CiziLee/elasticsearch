@@ -592,9 +592,11 @@ When a user authenticates using SAML, they are identified to the Elastic Stack,
 but this does not automatically grant them access to perform any actions or
 access any data.
 
-Your SAML users cannot do anything until they are mapped to X-Pack Security
-roles. This mapping is performed through the
-{ref}/security-api-role-mapping.html[role-mapping API]
+Your SAML users cannot do anything until they are assigned roles which can be done
+through  the {ref}/security-api-put-role-mapping.html[add role mapping API].
+
+NOTE: You cannot use {stack-ov}/mapping-roles.html#mapping-roles-file[role mapping files]
+to grant roles to users authenticating via SAML.
 
 This is an example of a simple role mapping that grants the `kibana_user` role
 to any user who authenticates against the `saml1` realm:
@@ -626,7 +628,7 @@ mapping are derived from the SAML attributes as follows:
 - `metadata`: See <<saml-user-metadata>>
 
 For more information, see <<mapping-roles>> and
-{ref}/security-api-role-mapping.html[Role Mapping APIs]. 
+{ref}/security-api.html#security-role-mapping-apis[role mapping APIs]. 
 
 If your IdP has the ability to provide groups or roles to Service Providers,
 then you should map this SAML attribute to the `attributes.groups` setting in
@@ -740,6 +742,7 @@ for `http` or `443` for `https`).
 These values must be aligned with the URLs used in the {es} configuration for
 `sp.acs` and `sp.logout`.
 
+[[saml-kibana-basic]]
 ==== Supporting SAML and basic authentication in {kib}
 
 The SAML support in {kib} is designed on the expectation that it will be the
@@ -819,3 +822,16 @@ xpack.security.authc.realms.saml_eng:
 It is possible to have one or more {kib} instances that use SAML, while other
 instances use basic authentication against another realm type (e.g.
 <<native-realm, Native>> or <<ldap-realm, LDAP>>).
+
+[[saml-troubleshooting]]
+=== Troubleshooting SAML Realm Configuration
+
+The SAML 2.0 specification offers a lot of options and flexibility for the implementers
+of the standard which in turn adds to the complexity and the number of configuration options
+that are available both at the Service Provider (Elastic Stack) and at the Identity Provider.
+Additionally, different security domains have different security requirements that need
+specific configuration to be satisfied.
+A conscious effort has been made to mask this complexity with sane defaults and the detailed
+documentation above but in case you encounter issues while configuring a SAML realm, you can
+look through our {stack-ov}/trb-security-saml.html[SAML troubleshooting documentation] that has
+suggestions and resolutions for common issues.
